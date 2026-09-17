@@ -4,3 +4,7 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Registry signing keys. Anyone holding one can publish under xyz.atlasfetch.
+*.pem
+key.pem

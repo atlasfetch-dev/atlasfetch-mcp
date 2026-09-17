@@ -1,6 +1,7 @@
 {
   "name": "atlasfetch-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "mcpName": "xyz.atlasfetch/atlasfetch",
   "description": "MCP server for AtlasFetch — reverse geocode a coordinate to its country, region and municipality (ISO 3166 codes), and match it against your own geofences.",
   "keywords": [
     "mcp",
@@ -31,7 +32,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "server.json"
   ],
   "engines": {
     "node": ">=20"

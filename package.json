@@ -43,7 +43,9 @@
     "prepublishOnly": "npm run build",
     "start": "node dist/stdio.js",
     "typecheck": "tsc --noEmit",
-    "pack:mcpb": "npm run build && node scripts/pack-mcpb.mjs"
+    "pack:mcpb": "npm run build && node scripts/pack-mcpb.mjs",
+    "release": "node scripts/release.mjs",
+    "release:dry": "node scripts/release.mjs --dry-run"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

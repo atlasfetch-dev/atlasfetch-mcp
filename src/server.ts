@@ -18,7 +18,7 @@ import {
  * `municipal` is not always a city, and grid codes are output only.
  */
 
-const VERSION = '0.1.2'
+const VERSION = '0.1.3'
 
 type ToolResult = {
   content: Array<{ type: 'text'; text: string }>
@@ -152,9 +152,9 @@ export function createServer(): McpServer {
     {
       title: 'List the boundary sets on this account',
       description:
-        'Lists the boundary sets on this account with their boundary counts and the API key ids ' +
-        'each is granted to. A set only matches during a lookup when it is available AND granted ' +
-        'to the key making the call.',
+        'Lists the boundary sets on this account with their boundary counts and the API keys (id ' +
+        'and label) each is granted to. A set only matches during a lookup when it is available AND ' +
+        'granted to the key making the call.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -186,7 +186,13 @@ export function createServer(): McpServer {
         'the user to finish that at https://atlasfetch.xyz/dashboard.',
       ].join('\n'),
       inputSchema: {
-        name: z.string().min(1).max(32).describe('A short name, used to reference the set in lookups.'),
+        name: z
+          .string()
+          .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,31}$/)
+          .describe(
+            'A short name, used to reference the set in lookups: 1-32 letters, digits, hyphens or ' +
+              'underscores, starting with a letter or digit.',
+          ),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
@@ -204,44 +210,78 @@ export function createServer(): McpServer {
     },
   )
 
+  // Rules transcribed from the API's boundaryService (validatePolygon,
+  // validateProps, createBoundary) and plans.ts. The geometry schema is typed
+  // rather than a free record, so a MultiPolygon or a whole Feature is refused
+  // by the client before any request, and the schema itself tells the model
+  // what shape to build.
   server.registerTool(
     'add_boundary',
     {
-      title: 'Add a boundary to a set',
-      description:
-        'Adds one GeoJSON polygon to a set on this account, with optional flat properties that come ' +
-        'back on every match. Plan caps limit vertices per boundary, properties per boundary, and ' +
-        'boundaries per set.',
+      title: 'Add a polygon to a boundary set',
+      description: [
+        'Adds ONE polygon to an existing boundary set on this account, so that lookup_location',
+        'reports when a point falls inside it — delivery zones, service areas, sales territories.',
+        'Each call creates a new boundary: calling twice with the same name stores two.',
+        '',
+        'Before calling: the set must already exist (create_boundary_set). A set matches nothing in',
+        'lookups until it is switched on and granted to an API key in the dashboard at',
+        'https://atlasfetch.xyz/dashboard, which this server cannot do.',
+        '',
+        'geometry must be a single GeoJSON Polygon — not a MultiPolygon, Feature or',
+        'FeatureCollection. Positions are [longitude, latitude]. Each ring needs at least 4',
+        'positions and must be closed (last position equals the first); extra rings are holes.',
+        'Self-intersecting shapes are rejected. To store a MultiPolygon, add each part separately.',
+        '',
+        'Plan limits cap vertices per polygon (every position counts, including the closing one),',
+        'properties per boundary and boundaries per set; a limit hit is refused with a message naming',
+        'it. WITHOUT YOUR OWN KEY, the shared demo key is on the Public plan: at most 5 positions per',
+        'polygon (a closed quadrilateral), properties only category (zone, area, route, place,',
+        'other), color (green, blue, red, yellow, purple, orange) and priority (low, medium, high),',
+        'and one set shared with every demo user, where adding to a full set silently deletes its',
+        'oldest boundary. Never upload anything private with the demo key.',
+        '',
+        'Returns the stored boundary: id, set, name, properties, pointCount and createdAt.',
+      ].join('\n'),
       inputSchema: {
-        set: z.string().min(1).max(32).describe('The set to add it to. It must already exist.'),
-        name: z.string().min(1).max(100).describe('A name for this boundary, returned on a match.'),
+        set: z
+          .string()
+          .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,31}$/)
+          .describe('Name of an existing set on this account (see list_boundary_sets).'),
+        name: z
+          .string()
+          .min(1)
+          .max(100)
+          .describe('Label returned when a looked-up point falls inside this polygon, e.g. "Zone A".'),
         geometry: z
-          .record(z.string(), z.unknown())
+          .object({
+            type: z.literal('Polygon'),
+            coordinates: z
+              .array(z.array(z.array(z.number()).min(2).max(3)).min(4))
+              .min(1)
+              .describe(
+                'Rings of [longitude, latitude] positions. The first ring is the outline; any further ' +
+                  'rings are holes. Each ring is closed: its last position repeats its first.',
+              ),
+          })
           .describe(
-            'GeoJSON geometry, e.g. {"type":"Polygon","coordinates":[[[lng,lat],...]]}. ' +
-              'Longitude comes first. A Feature or FeatureCollection is not accepted.',
+            'A GeoJSON Polygon, e.g. {"type":"Polygon","coordinates":[[[18.40,-33.93],[18.40,-33.90],' +
+              '[18.44,-33.90],[18.44,-33.93],[18.40,-33.93]]]}.',
           ),
         properties: z
-          .record(z.string(), z.unknown())
+          .record(z.string().max(32), z.union([z.string().max(256), z.number(), z.boolean()]))
           .optional()
-          .describe('Flat key/value pairs returned with every match of this boundary.'),
+          .describe(
+            'Optional flat key/value pairs returned with every match: keys up to 32 characters, values ' +
+              'a string (up to 256 characters), number or boolean. The demo key accepts only category, ' +
+              'color and priority, from fixed lists.',
+          ),
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      // destructiveHint is true because of the Public plan: adding to its full,
+      // shared set deletes the oldest boundary, which may be someone else's.
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },
     async ({ set, name, geometry, properties }) => {
-      // Caught here rather than at the API, so the message can name the actual
-      // mistake — passing a whole Feature is the common one.
-      if (typeof geometry.type !== 'string' || !('coordinates' in geometry)) {
-        return {
-          content: [{
-            type: 'text' as const,
-            text:
-              'geometry must be a GeoJSON geometry object with "type" and "coordinates" — a ' +
-              'Feature or FeatureCollection is not accepted. Coordinates are [longitude, latitude].',
-          }],
-          isError: true,
-        }
-      }
       try {
         const created = await request<unknown>('/boundaries', {
           method: 'POST',

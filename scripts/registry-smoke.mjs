@@ -7,7 +7,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 const cwd = process.argv[2];
 const transport = new StdioClientTransport({
   command: process.platform === "win32" ? "npx.cmd" : "npx",
-  args: ["-y", "atlasfetch-mcp@0.1.2"],
+  args: ["-y", "atlasfetch-mcp@0.1.3"],
   cwd,
   stderr: "pipe",
 });

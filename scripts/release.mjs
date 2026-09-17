@@ -44,6 +44,7 @@ for (const name of [from, ...skip].filter(Boolean)) {
   if (!STEPS.includes(name)) fail(`Unknown step "${name}". Steps: ${STEPS.join(", ")}`);
 }
 
+const startAt = from ? STEPS.indexOf(from) : 0;
 const version = JSON.parse(readFileSync("package.json", "utf8")).version;
 const tag = `v${version}`;
 
@@ -111,6 +112,16 @@ const steps = {
     if (!npmUser.ok) fail("Not logged in to npm. Run: npm login");
     log(`npm user ${npmUser.out}`);
 
+    // The atlasiq account has npm 2FA with auth-type "web": every write
+    // (publish, deprecate) opens a browser and waits. Without a terminal, npm
+    // cannot do that and fails at once with EOTP — which is how the first run
+    // of this script stopped, at npm-deprecate.
+    const npmWrites = ["npm-publish", "npm-deprecate"].some(s => !skip.has(s) && STEPS.indexOf(s) >= startAt);
+    if (npmWrites && !process.stdin.isTTY) {
+      log("WARNING: not an interactive terminal. npm publish/deprecate need a browser 2FA confirmation");
+      log("         and will fail with EOTP here. Run this from your own PowerShell window.");
+    }
+
     if (!capture("gh", ["auth", "status"]).ok) fail("gh is not logged in. Run: gh auth login");
     log("gh authenticated");
 
@@ -157,7 +168,8 @@ const steps = {
 
   async "npm-deprecate"() {
     const message = `Superseded by ${version}. Use npx -y ${PACKAGE}@latest`;
-    await run("npm", ["deprecate", `${PACKAGE}@<${version}`, message], { timeoutMs: 3 * MIN, label: "npm deprecate" });
+    // Ten minutes, like publish: the browser 2FA confirmation happens inside it.
+    await run("npm", ["deprecate", `${PACKAGE}@<${version}`, message], { timeoutMs: 10 * MIN, label: "npm deprecate" });
   },
 
   async registry() {
@@ -221,7 +233,6 @@ const steps = {
 };
 
 // ── Run ──────────────────────────────────────────────────────────────────────
-const startAt = from ? STEPS.indexOf(from) : 0;
 const plan = STEPS.slice(startAt).filter(s => !skip.has(s));
 const planned = dryRun ? ["preflight"] : plan;
 

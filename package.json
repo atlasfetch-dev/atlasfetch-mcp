@@ -1,0 +1,53 @@
+{
+  "name": "atlasfetch-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for AtlasFetch — reverse geocode a coordinate to its country, region and municipality (ISO 3166 codes), and match it against your own geofences.",
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "reverse-geocoding",
+    "geocoding",
+    "geofencing",
+    "point-in-polygon",
+    "administrative-boundaries",
+    "iso-3166",
+    "geojson",
+    "gis"
+  ],
+  "license": "MIT",
+  "author": "ATLASIQ PTY LTD",
+  "homepage": "https://atlasfetch.xyz",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AtlasIq-dev/atlasfetch-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AtlasIq-dev/atlasfetch-mcp/issues"
+  },
+  "type": "module",
+  "bin": {
+    "atlasfetch-mcp": "dist/stdio.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/stdio.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

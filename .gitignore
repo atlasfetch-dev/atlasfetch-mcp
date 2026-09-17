@@ -8,3 +8,7 @@ dist/
 # Registry signing keys. Anyone holding one can publish under xyz.atlasfetch.
 *.pem
 key.pem
+
+# MCPB bundle staging and output (attach .mcpb files to GitHub releases, do not commit)
+build/
+*.mcpb

@@ -42,13 +42,15 @@
     "build": "tsc",
     "prepublishOnly": "npm run build",
     "start": "node dist/stdio.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pack:mcpb": "npm run build && node scripts/pack-mcpb.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2",
     "@types/node": "^24.0.0",
     "typescript": "^5.9.0"
   }

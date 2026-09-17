@@ -239,6 +239,22 @@ const planned = dryRun ? ["preflight"] : plan;
 console.log(`\nReleasing ${PACKAGE} ${version}${dryRun ? " — DRY RUN, nothing will be published" : ""}`);
 console.log(`Steps: ${plan.join(" → ")}\n`);
 
+// Resuming with --from skips preflight, and with it the tool checks. Check the
+// tools the remaining steps need anyway, before any of them runs.
+try {
+  if (!planned.includes("preflight")) {
+    const needs = new Set();
+    if (planned.some(s => s.startsWith("npm-") || s === "build")) needs.add("npm");
+    if (planned.some(s => s === "github-release" || s === "verify")) needs.add("gh");
+    for (const tool of needs) {
+      const check = capture(tool, ["--version"]);
+      if (!check.ok) fail(`${tool} is installed but failed to run: ${check.err || check.out}`);
+    }
+  }
+} catch (error) {
+  fail(error.message);
+}
+
 for (const name of planned) {
   const started = Date.now();
   console.log(`▶ ${name}`);

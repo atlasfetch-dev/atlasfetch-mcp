@@ -52,6 +52,7 @@
   "devDependencies": {
     "@anthropic-ai/mcpb": "2.1.2",
     "@types/node": "^24.0.0",
+    "fflate": "0.8.3",
     "typescript": "^5.9.0"
   }
 }

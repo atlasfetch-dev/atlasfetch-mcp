@@ -1,5 +1,7 @@
 # atlasfetch-mcp
 
+**No signup needed to try it:** without a key it falls back to a shared public demo key, capped at 1,000 lookups a month across everyone using it. Get your own limits with a free sign-up at [atlasfetch.xyz](https://atlasfetch.xyz/dashboard).
+
 An [MCP](https://modelcontextprotocol.io) server for [AtlasFetch](https://atlasfetch.xyz) — **reverse geocoding to administrative boundaries, and geofencing**, as tools your AI assistant can call directly.
 
 Ask "which municipality is -33.9249, 18.4241 in?" and get **Cape Town, Western Cape, South Africa** with ISO 3166 codes — from a real point-in-polygon lookup, not the model's memory.
@@ -22,8 +24,6 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 **Not for:** street addresses or postcodes (this is not forward geocoding — results stop at the municipality), routing, distances, map tiles, or downloading boundary geometry.
 
 ## Install
-
-No signup needed to try it: without a key it falls back to a shared public demo key.
 
 ### Claude Code
 

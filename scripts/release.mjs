@@ -87,13 +87,13 @@ const steps = {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
     const server = JSON.parse(readFileSync("server.json", "utf8"));
     const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
-    const sourceVersion = readFileSync("src/server.ts", "utf8").match(/^const VERSION = '([^']+)'/m)?.[1];
+    const sourceVersion = readFileSync("src/version.ts", "utf8").match(/^export const VERSION = '([^']+)'/m)?.[1];
     const versions = {
       "package.json": pkg.version,
       "server.json": server.version,
       "server.json packages[0]": server.packages[0].version,
       "manifest.json": manifest.version,
-      "src/server.ts": sourceVersion,
+      "src/version.ts": sourceVersion,
     };
     if (new Set(Object.values(versions)).size !== 1) fail(`Versions disagree: ${JSON.stringify(versions)}`);
     log(`version ${version} in all five places`);

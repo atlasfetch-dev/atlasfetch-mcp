@@ -7,7 +7,16 @@
  * period" tells it to stop retrying and say so.
  */
 
+import { VERSION } from './version.js'
+
 const DEFAULT_BASE_URL = 'https://api.atlasfetch.xyz'
+
+/**
+ * Identifies this server to the API so adoption can be measured. The API keeps
+ * only `atlasfetch-mcp/<version>` from it — never the rest, and never anything
+ * about the user. See src/lib/clientId.ts in the API.
+ */
+export const USER_AGENT = `atlasfetch-mcp/${VERSION} (+https://github.com/atlasfetch-dev/atlasfetch-mcp)`
 
 export function baseUrl(): string {
   return (process.env.ATLASFETCH_API_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
@@ -44,7 +53,7 @@ export async function resolveKey(): Promise<string> {
 
   if (cachedDemoKey) return cachedDemoKey
 
-  const response = await fetch(`${baseUrl()}/demo/key`)
+  const response = await fetch(`${baseUrl()}/demo/key`, { headers: { 'User-Agent': USER_AGENT } })
   if (!response.ok) {
     throw new ApiError(
       'No ATLASFETCH_API_KEY is configured and the public demo key could not be fetched. ' +
@@ -97,6 +106,7 @@ export async function request<T>(
     method: init.method ?? 'GET',
     headers: {
       Authorization: `Bearer ${key}`,
+      'User-Agent': USER_AGENT,
       ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),

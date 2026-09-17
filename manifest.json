@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "atlasfetch",
   "display_name": "AtlasFetch",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Reverse geocode a coordinate to country, region and municipality, and match your own geofences.",
   "long_description": "AtlasFetch answers **which place is this coordinate in?** A point becomes the country, region and municipality that contain it, with ISO 3166-1 and 3166-2 codes, plus matches from boundary sets you upload yourself: delivery zones, service areas, sales territories.\n\n**No sign-up needed to try it.** Leave the API key empty and it uses a shared public demo key, capped at 1,000 lookups a month across everyone using it. Get your own limits with a free sign-up at https://atlasfetch.xyz.\n\n**Not for** street addresses or postcodes (results stop at the municipality), routing, distances, or downloading boundary geometry.\n\nReference boundaries derive from OpenStreetMap under the ODbL. Coordinates you look up are not stored.",
   "author": {

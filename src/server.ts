@@ -4,6 +4,7 @@ import {
   ApiError, DEMO_KEY_NOTICE, request, usingDemoKey,
   type BoundarySet, type LookupResponse,
 } from './api.js'
+import { VERSION } from './version.js'
 
 /**
  * The AtlasFetch tools.
@@ -17,8 +18,6 @@ import {
  * choosing a tool reads only these. The two that cause real mistakes:
  * `municipal` is not always a city, and grid codes are output only.
  */
-
-const VERSION = '0.1.3'
 
 type ToolResult = {
   content: Array<{ type: 'text'; text: string }>

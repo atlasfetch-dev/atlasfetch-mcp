@@ -1,6 +1,6 @@
 {
   "name": "atlasfetch-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "mcpName": "xyz.atlasfetch/atlasfetch",
   "description": "MCP server for AtlasFetch — reverse geocode a coordinate to its country, region and municipality (ISO 3166 codes), and match it against your own geofences.",
   "keywords": [
@@ -20,10 +20,10 @@
   "homepage": "https://atlasfetch.xyz",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AtlasIq-dev/atlasfetch-mcp.git"
+    "url": "git+https://github.com/atlasfetch-dev/atlasfetch-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/AtlasIq-dev/atlasfetch-mcp/issues"
+    "url": "https://github.com/atlasfetch-dev/atlasfetch-mcp/issues"
   },
   "type": "module",
   "bin": {

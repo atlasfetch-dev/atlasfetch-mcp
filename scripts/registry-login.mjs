@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { privateHex } from "./registry-keys.mjs";
 
 const keyPath = process.env.KEY_PATH ?? "key.pem";
-const publisher = process.env.MCP_PUBLISHER ?? "E:\Claude\mcp-publisher.exe";
+const publisher = process.env.MCP_PUBLISHER ?? "E:/Claude/mcp-publisher.exe";
 
 if (!existsSync(keyPath)) {
   console.error(`No ${keyPath}. Run node scripts/registry-key.mjs first.`);

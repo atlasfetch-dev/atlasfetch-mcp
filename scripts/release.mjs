@@ -72,7 +72,9 @@ async function npmHasVersion() {
 }
 
 async function registryLatest() {
-  const { body } = await fetchJson(`https://registry.modelcontextprotocol.io/v0.1/servers?search=${encodeURIComponent(REGISTRY_NAME)}`);
+  // The listing is cached upstream: without the throwaway parameter, verify
+  // read 0.1.3 as latest for 0.1.4, which had been live for minutes.
+  const { body } = await fetchJson(`https://registry.modelcontextprotocol.io/v0.1/servers?search=${encodeURIComponent(REGISTRY_NAME)}&t=${Date.now()}`);
   const entries = (body?.servers ?? []).map(e => ({
     version: (e.server ?? e).version,
     name: (e.server ?? e).name,
@@ -215,8 +217,14 @@ const steps = {
     (stale.length === 0 ? log : m => problems.push(m))(`older versions not deprecated: ${stale.join(", ") || "none"}`);
 
     if (!skip.has("registry")) {
-      const entries = await registryLatest();
-      const latest = entries.find(e => e.latest);
+      // A fresh publish can take a moment to become "latest"; allow three minutes.
+      const deadline = Date.now() + 3 * MIN;
+      let latest = (await registryLatest()).find(e => e.latest);
+      while (latest?.version !== version && Date.now() < deadline) {
+        log(`MCP Registry still reports ${latest?.version} as latest; checking again in 15s`);
+        await sleep(15_000);
+        latest = (await registryLatest()).find(e => e.latest);
+      }
       (latest?.version === version ? log : m => problems.push(m))(`MCP Registry latest: ${latest?.version}`);
     }
 

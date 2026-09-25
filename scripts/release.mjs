@@ -102,6 +102,32 @@ async function registryLatest() {
   return entries.filter(e => e.name === REGISTRY_NAME);
 }
 
+/**
+ * The commit to tag: the one npm actually published, which npm records as
+ * gitHead — not whatever HEAD is now. A release that stops halfway and resumes
+ * after a fix would otherwise tag a commit whose code is not in the published
+ * tarball. Falls back to HEAD when npm has no gitHead, or when it names a commit
+ * GitHub has never seen (gh needs a --target it can resolve).
+ */
+async function releaseTarget() {
+  const head = capture("git", ["rev-parse", "HEAD"]).out;
+  const { body } = await fetchJson(`https://registry.npmjs.org/${PACKAGE}/${version}?t=${Date.now()}`);
+  const gitHead = body?.gitHead;
+  if (!gitHead) {
+    log(`npm records no gitHead for ${version}; tagging HEAD ${head.slice(0, 7)}`);
+    return head;
+  }
+  capture("git", ["fetch", "-q", "origin", BRANCH]);
+  if (!capture("git", ["merge-base", "--is-ancestor", gitHead, `origin/${BRANCH}`]).ok) {
+    log(`npm published ${gitHead.slice(0, 7)}, which is not on origin/${BRANCH}; tagging HEAD ${head.slice(0, 7)}`);
+    return head;
+  }
+  log(gitHead === head
+    ? `tagging HEAD ${head.slice(0, 7)}, which is what npm published`
+    : `tagging ${gitHead.slice(0, 7)}, the commit npm published (HEAD is ${head.slice(0, 7)})`);
+  return gitHead;
+}
+
 // ── Steps ────────────────────────────────────────────────────────────────────
 const steps = {
   async preflight() {
@@ -215,9 +241,9 @@ const steps = {
       : `Release ${version}.\n\nInstall: \`npx -y ${PACKAGE}@${version}\`, or download the \`.mcpb\` below for Claude Desktop.`;
     const tempNotes = join(mkdtempSync(join(tmpdir(), "release-")), "notes.md");
     writeFileSync(tempNotes, notes);
-    const head = capture("git", ["rev-parse", "HEAD"]).out;
+    const target = await releaseTarget();
     try {
-      await run("gh", ["release", "create", tag, `atlasfetch-${version}.mcpb`, "--repo", GITHUB_REPO, "--target", head, "--title", tag, "--notes-file", tempNotes, "--latest"], {
+      await run("gh", ["release", "create", tag, `atlasfetch-${version}.mcpb`, "--repo", GITHUB_REPO, "--target", target, "--title", tag, "--notes-file", tempNotes, "--latest"], {
         timeoutMs: 5 * MIN,
         label: "github release",
       });

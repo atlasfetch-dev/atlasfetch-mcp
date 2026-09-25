@@ -174,7 +174,7 @@ export interface StreetAnswer {
 export interface LookupResponse {
   /**
    * `country`, `region` and `municipal` are a single hit or null; `street` is
-   * three answers, or null when the point's country has no street data at all.
+   * three answers, or null when there is no street data for the point's country.
    * Those two nulls mean different things — see the tool description.
    */
   base: Record<string, LayerHit | StreetAnswer[] | null>

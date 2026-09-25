@@ -25,7 +25,7 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 
 ### Streets (beta)
 
-Add the `street` layer and the answer includes the nearest street, and the house number where one is mapped. It is **opt-in**, not part of the default `country, region, municipal`, and is **rolling out worldwide**, country by country.
+Add the `street` layer and the answer includes the nearest street, and the house number where one is mapped. It is **worldwide**, and **opt-in** — not part of the default `country, region, municipal`.
 
 You always get three answers — for 5 m, 20 m and unlimited — because "the nearest street" depends on how far you are willing to look:
 
@@ -37,7 +37,7 @@ You always get three answers — for 5 m, 20 m and unlimited — because "the ne
 ]
 ```
 
-**Two nulls that mean different things:** `"street": null` means that country's streets are not loaded yet — [`GET /streets/coverage`](https://api.atlasfetch.xyz/streets/coverage) (public, unmetered) lists the ones that are — while an entry whose fields are null means the country is covered but nothing was within that radius. `streetNumber` and `postcode` are strings (`44A`, `12-14`, `0181`); house numbers are rare outside well-mapped areas; no street geometry is returned.
+**Two nulls that mean different things:** `"street": null` means there is no street data for that country, while an entry whose fields are null means nothing was within that radius. `streetNumber` and `postcode` are strings (`44A`, `12-14`, `0181`); house numbers are rare outside well-mapped areas; no street geometry is returned.
 
 ## Install
 

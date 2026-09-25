@@ -60,7 +60,7 @@ function summarise(result: LookupResponse): string {
     // street is three answers, not one hit, and its null means "no data for
     // this country" rather than "nothing matched here".
     if (Array.isArray(hit)) return summariseStreet(hit)
-    if (layer === 'street') return 'street: no street data for this area yet'
+    if (layer === 'street') return 'street: no street data for this area'
     return hit ? `${layer}: ${hit.name}${hit.code ? ` (${hit.code})` : ''}` : `${layer}: no match`
   })
   const setNames = Object.entries(result.sets)
@@ -105,13 +105,13 @@ export function createServer(): McpServer {
         'array is always present: a boundary set that is unavailable or not granted to this key is',
         'skipped and reported there, while the call itself still succeeds.',
         '',
-        'STREETS (beta, opt-in via base, rolling out worldwide). base.street is ALWAYS three',
+        'STREETS (beta, opt-in via base, worldwide). base.street is ALWAYS three',
         'answers, for 5 m, 20 m and unlimited in that order,',
         'each with radiusMeters, streetNumber, streetName, postcode and distanceMeters. A numbered',
         'address within the radius wins over a nearer street (for the unlimited entry the address',
         'must still be within 20 m); otherwise the nearest named street; unnamed roads never answer.',
-        'Two different nulls: base.street === null means the point’s country has no street data',
-        'yet, while an entry whose fields are null means covered but nothing within that radius —',
+        'Two different nulls: base.street === null means there is no street data for the point’s',
+        'country, while an entry whose fields are null means nothing was within that radius —',
         'never report them the same way. streetNumber and postcode are STRINGS (44A, 12-14, 0181),',
         'house numbers are rare outside well-mapped areas, and no street geometry is returned.',
         '',

@@ -37,7 +37,7 @@ await call("lookup_location", { lat: 999, lng: 0 });
 await call("lookup_location", { lat: 51.5072, lng: -0.1276, sets: ["no_such_set"] });
 // Streets (beta): opt-in layer. Adderley Street, Cape Town.
 await call("lookup_location", { lat: -33.9221, lng: 18.4231, base: ["municipal", "street"] });
-// London: a second street case. Answers once GB is loaded; null until then, and both are correct.
+// London: a second street case, in another country.
 await call("lookup_location", { lat: 51.5072, lng: -0.1276, base: ["country", "street"] });
 
 await call("list_boundary_sets", {});

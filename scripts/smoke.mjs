@@ -15,7 +15,12 @@ for (const t of tools) {
   console.log(`  - ${t.name}: required [${required.join(", ")}] title="${t.title ?? ""}"`);
 }
 
+// The demo key allows 2 requests a second and this script is a burst of calls:
+// without a pause the later ones come back 429 and prove nothing.
+const pace = () => new Promise(resolve => setTimeout(resolve, 600));
+
 async function call(name, args) {
+  await pace();
   const res = await client.callTool({ name, arguments: args });
   const text = res.content.map((c) => c.text ?? "").join("\n");
   console.log(`\n== ${name} ${JSON.stringify(args)} -> isError=${res.isError ?? false}`);
@@ -30,6 +35,11 @@ await call("lookup_location", { lat: 0, lng: -30, base: ["country"] });
 await call("lookup_location", { lat: 999, lng: 0 });
 // A set that does not exist: skipped, reported in errors, still a success
 await call("lookup_location", { lat: 51.5072, lng: -0.1276, sets: ["no_such_set"] });
+// Streets (beta): opt-in layer. Adderley Street, Cape Town — covered.
+await call("lookup_location", { lat: -33.9221, lng: 18.4231, base: ["municipal", "street"] });
+// London: administrative layers answer, street is null (no data for that country yet).
+await call("lookup_location", { lat: 51.5072, lng: -0.1276, base: ["country", "street"] });
+
 await call("list_boundary_sets", {});
 // Wrong shape on purpose: a Feature instead of a geometry
 await call("add_boundary", { set: "demo", name: "x", geometry: { type: "Feature", properties: {}, geometry: {} } });

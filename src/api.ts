@@ -157,8 +157,27 @@ export interface LayerHit {
   name: string
 }
 
+/**
+ * One street answer. The lookup returns exactly three of these when `street` is
+ * asked for — for 5 m, 20 m and unlimited, in that order.
+ */
+export interface StreetAnswer {
+  /** 5, 20, or null for unlimited. */
+  radiusMeters: number | null
+  /** A string, never a number: `44A`, `12-14`. Only when an address matched. */
+  streetNumber: string | null
+  streetName: string | null
+  postcode: string | null
+  distanceMeters: number | null
+}
+
 export interface LookupResponse {
-  base: Record<string, LayerHit | null>
+  /**
+   * `country`, `region` and `municipal` are a single hit or null; `street` is
+   * three answers, or null when the point's country has no street data at all.
+   * Those two nulls mean different things — see the tool description.
+   */
+  base: Record<string, LayerHit | StreetAnswer[] | null>
   sets: Record<string, Array<{ name: string; properties?: unknown }>>
   encoded?: { h3?: string; pluscode?: string }
   /** Always present, empty or not. Per-set problems appear here WITH a 200. */

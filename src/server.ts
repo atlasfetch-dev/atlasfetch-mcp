@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import {
   ApiError, DEMO_KEY_NOTICE, request, usingDemoKey,
-  type BoundarySet, type LookupResponse,
+  type BoundarySet, type LookupResponse, type StreetAnswer,
 } from './api.js'
 import { VERSION } from './version.js'
 
@@ -42,11 +42,27 @@ function fail(error: unknown): ToolResult {
 
 const json = (value: unknown) => JSON.stringify(value, null, 2)
 
+/**
+ * The widest street answer worth showing: the unlimited entry if it found
+ * anything, else the first entry that did.
+ */
+function summariseStreet(answers: StreetAnswer[]): string {
+  const best = [...answers].reverse().find(a => a.streetName) ?? answers.find(a => a.streetName)
+  if (!best) return 'street: covered, but nothing nearby'
+  const number = best.streetNumber ? `${best.streetNumber} ` : ''
+  const distance = best.distanceMeters === null ? '' : ` (${best.distanceMeters} m)`
+  return `street: ${number}${best.streetName}${distance}`
+}
+
 /** `{ country: {...}, region: null }` becomes "country: United Kingdom (GB) · region: no match". */
 function summarise(result: LookupResponse): string {
-  const parts = Object.entries(result.base).map(([layer, hit]) =>
-    hit ? `${layer}: ${hit.name}${hit.code ? ` (${hit.code})` : ''}` : `${layer}: no match`,
-  )
+  const parts = Object.entries(result.base).map(([layer, hit]) => {
+    // street is three answers, not one hit, and its null means "no data for
+    // this country" rather than "nothing matched here".
+    if (Array.isArray(hit)) return summariseStreet(hit)
+    if (layer === 'street') return 'street: no street data for this country yet'
+    return hit ? `${layer}: ${hit.name}${hit.code ? ` (${hit.code})` : ''}` : `${layer}: no match`
+  })
   const setNames = Object.entries(result.sets)
     .filter(([, matches]) => matches.length > 0)
     .map(([name, matches]) => `${name} -> ${matches.map(m => m.name).join(', ')}`)
@@ -60,9 +76,10 @@ export function createServer(): McpServer {
     {
       instructions:
         'AtlasFetch answers "which place is this coordinate in?" — the country, region and ' +
-        'municipality containing a point, plus the boundaries the caller has uploaded themselves. ' +
-        'It does not do street addresses, postcodes, routing or distances, and it does not return ' +
-        'boundary geometry for the reference layers.',
+        'municipality containing a point, the nearest street where street data is loaded (beta, ' +
+        'opt-in), plus the boundaries the caller has uploaded themselves. It does not do forward ' +
+        'geocoding or place search, routing or distances, and it does not return boundary geometry ' +
+        'for the reference layers.',
     },
   )
 
@@ -73,19 +90,30 @@ export function createServer(): McpServer {
       title: 'Look up the boundaries containing a coordinate',
       description: [
         'Reverse geocode a coordinate to the administrative areas that contain it — country,',
-        'region (state or province) and municipality — as names plus ISO 3166 codes, and match it',
-        'against boundary sets the account has uploaded, in the same call.',
+        'region (state or province) and municipality — as names plus ISO 3166 codes, optionally the',
+        'nearest street, and matches from boundary sets the account has uploaded: all in one call.',
         '',
-        'Use for: which country, region or municipality a point is in; geofence checks against your',
-        'own polygons; tagging data with region codes.',
-        'Do NOT use for: street addresses or postcodes (this is not forward geocoding, and results',
-        'stop at the municipality), routing, distances, or fetching boundary geometry.',
+        'Use for: which country, region or municipality a point is in; which street a point is on',
+        '(add "street" to base); geofence checks against your own polygons; tagging data with region',
+        'codes.',
+        'Do NOT use for: forward geocoding or place search (an address to a coordinate), routing,',
+        'distances, or fetching boundary geometry.',
         '',
         'Caveats worth repeating to the user: municipal is the finest unit AVAILABLE, not a',
         'consistent kind of thing — Los Angeles returns a city, rural Kansas returns a county, so',
         'do not assume it names a city. A layer that matched nothing comes back null. The errors',
         'array is always present: a boundary set that is unavailable or not granted to this key is',
         'skipped and reported there, while the call itself still succeeds.',
+        '',
+        'STREETS (beta, opt-in via base, South Africa at launch and rolling out country by',
+        'country). base.street is ALWAYS three answers, for 5 m, 20 m and unlimited in that order,',
+        'each with radiusMeters, streetNumber, streetName, postcode and distanceMeters. A numbered',
+        'address within the radius wins over a nearer street (for the unlimited entry the address',
+        'must still be within 20 m); otherwise the nearest named street; unnamed roads never answer.',
+        'Two different nulls: base.street === null means the point’s country has no street data',
+        'yet, while an entry whose fields are null means covered but nothing within that radius —',
+        'never report them the same way. streetNumber and postcode are STRINGS (44A, 12-14, 0181),',
+        'house numbers are rare outside well-mapped areas, and no street geometry is returned.',
         '',
         'One call is one billed lookup however many layers, sets or grid codes it touches, and a',
         'call that matches nothing still bills.',
@@ -94,9 +122,12 @@ export function createServer(): McpServer {
         lat: z.number().min(-90).max(90).describe('Latitude, -90 to 90.'),
         lng: z.number().min(-180).max(180).describe('Longitude, -180 to 180.'),
         base: z
-          .array(z.enum(['country', 'region', 'municipal']))
+          .array(z.enum(['country', 'region', 'municipal', 'street']))
           .optional()
-          .describe('Which reference layers to resolve. Defaults to all three.'),
+          .describe(
+            'Which reference layers to resolve. Defaults to country, region and municipal. ' +
+              '"street" is opt-in and beta: add it explicitly to get the nearest street.',
+          ),
         sets: z
           .array(z.string().max(64))
           .optional()

@@ -2,7 +2,7 @@
 
 **No signup needed to try it:** without a key it falls back to a shared public demo key, capped at 1,000 lookups a month across everyone using it. Get your own limits with a free sign-up at [atlasfetch.xyz](https://atlasfetch.xyz/dashboard).
 
-An [MCP](https://modelcontextprotocol.io) server for [AtlasFetch](https://atlasfetch.xyz) — **reverse geocoding to administrative boundaries, and geofencing**, as tools your AI assistant can call directly.
+An [MCP](https://modelcontextprotocol.io) server for [AtlasFetch](https://atlasfetch.xyz) — **reverse geocoding to administrative boundaries and streets, and geofencing**, as tools your AI assistant can call directly.
 
 Ask "which municipality is -33.9249, 18.4241 in?" and get **Cape Town, Western Cape, South Africa** with ISO 3166 codes — from a real point-in-polygon lookup, not the model's memory.
 
@@ -14,14 +14,30 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 
 | Tool | What it does |
 | --- | --- |
-| `lookup_location` | A coordinate becomes the country, region and municipality containing it, with ISO 3166-1 / 3166-2 codes, plus matches from your own boundary sets. Optionally returns the point as an H3 cell or Google Plus Code. |
+| `lookup_location` | A coordinate becomes the country, region and municipality containing it, with ISO 3166-1 / 3166-2 codes, plus matches from your own boundary sets. Optionally the **nearest street** (beta — ask for the `street` layer), and the point as an H3 cell or Google Plus Code. |
 | `list_boundary_sets` | Lists your boundary sets, their counts, and which API keys may query them. |
 | `create_boundary_set` | Creates an empty set for your own polygons. |
 | `add_boundary` | Adds one GeoJSON polygon, with properties returned on every match. |
 
-**Good for:** reverse geocoding to administrative areas, geofencing against your own delivery zones or service areas, jurisdiction and region checks, tagging location data with region codes.
+**Good for:** reverse geocoding to administrative areas, finding the street a point is on, geofencing against your own delivery zones or service areas, jurisdiction and region checks, tagging location data with region codes.
 
-**Not for:** street addresses or postcodes (this is not forward geocoding — results stop at the municipality), routing, distances, map tiles, or downloading boundary geometry.
+**Not for:** forward geocoding or place search (an address to a coordinate), routing, distances, map tiles, or downloading boundary geometry.
+
+### Streets (beta)
+
+Add the `street` layer and the answer includes the nearest street, and the house number where one is mapped. It is **opt-in**, not part of the default `country, region, municipal`, and covers **South Africa at launch**, rolling out country by country.
+
+You always get three answers — for 5 m, 20 m and unlimited — because "the nearest street" depends on how far you are willing to look:
+
+```json
+"street": [
+  { "radiusMeters": 5,    "streetNumber": null, "streetName": "Adderley Street", "postcode": null,   "distanceMeters": 2.7 },
+  { "radiusMeters": 20,   "streetNumber": "25", "streetName": "Adderley Street", "postcode": "8001", "distanceMeters": 9.6 },
+  { "radiusMeters": null, "streetNumber": "25", "streetName": "Adderley Street", "postcode": "8001", "distanceMeters": 9.6 }
+]
+```
+
+**Two nulls that mean different things:** `"street": null` means that country has no street data yet, while an entry whose fields are null means the country is covered but nothing was within that radius. `streetNumber` and `postcode` are strings (`44A`, `12-14`, `0181`); house numbers are rare outside well-mapped areas; no street geometry is returned.
 
 ## Install
 

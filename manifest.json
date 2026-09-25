@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "atlasfetch",
   "display_name": "AtlasFetch",
-  "version": "0.1.4",
-  "description": "Reverse geocode a coordinate to country, region and municipality, and match your own geofences.",
-  "long_description": "AtlasFetch answers **which place is this coordinate in?** A point becomes the country, region and municipality that contain it, with ISO 3166-1 and 3166-2 codes, plus matches from boundary sets you upload yourself: delivery zones, service areas, sales territories.\n\n**No sign-up needed to try it.** Leave the API key empty and it uses a shared public demo key, capped at 1,000 lookups a month across everyone using it. Get your own limits with a free sign-up at https://atlasfetch.xyz.\n\n**Not for** street addresses or postcodes (results stop at the municipality), routing, distances, or downloading boundary geometry.\n\nReference boundaries derive from OpenStreetMap under the ODbL. Coordinates you look up are not stored.",
+  "version": "0.1.5",
+  "description": "Reverse geocode a coordinate to country, region, municipality and street, plus your own geofences.",
+  "long_description": "AtlasFetch answers **which place is this coordinate in?** A point becomes the country, region and municipality that contain it, with ISO 3166-1 and 3166-2 codes, plus matches from boundary sets you upload yourself: delivery zones, service areas, sales territories. Ask for the **street** layer and it also answers with the nearest street and, where one is mapped, the house number — a beta layer covering South Africa at launch and rolling out country by country.\n\n**No sign-up needed to try it.** Leave the API key empty and it uses a shared public demo key, capped at 1,000 lookups a month across everyone using it. Get your own limits with a free sign-up at https://atlasfetch.xyz.\n\n**Not for** forward geocoding or place search (an address to a coordinate), routing, distances, or downloading boundary geometry. House numbers are rare outside well-mapped areas.\n\nReference boundaries derive from OpenStreetMap under the ODbL. Coordinates you look up are not stored.",
   "author": {
     "name": "ATLASIQ PTY LTD",
     "email": "atlasfetch@atlas-iq.co",
@@ -27,7 +27,8 @@
     "administrative boundaries",
     "ISO 3166",
     "GeoJSON",
-    "GIS"
+    "GIS",
+    "street"
   ],
   "privacy_policies": [
     "https://atlasfetch.xyz/privacy"
@@ -57,7 +58,7 @@
   "tools": [
     {
       "name": "lookup_location",
-      "description": "Resolve a coordinate to the country, region and municipality containing it, with ISO 3166 codes, and match it against your own boundary sets."
+      "description": "Resolve a coordinate to the country, region and municipality containing it, with ISO 3166 codes, optionally the nearest street (beta), and match it against your own boundary sets."
     },
     {
       "name": "list_boundary_sets",

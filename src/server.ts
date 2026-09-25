@@ -60,7 +60,7 @@ function summarise(result: LookupResponse): string {
     // street is three answers, not one hit, and its null means "no data for
     // this country" rather than "nothing matched here".
     if (Array.isArray(hit)) return summariseStreet(hit)
-    if (layer === 'street') return 'street: no street data for this country yet'
+    if (layer === 'street') return 'street: no street data for this area yet'
     return hit ? `${layer}: ${hit.name}${hit.code ? ` (${hit.code})` : ''}` : `${layer}: no match`
   })
   const setNames = Object.entries(result.sets)
@@ -76,8 +76,8 @@ export function createServer(): McpServer {
     {
       instructions:
         'AtlasFetch answers "which place is this coordinate in?" — the country, region and ' +
-        'municipality containing a point, the nearest street where street data is loaded (beta, ' +
-        'opt-in), plus the boundaries the caller has uploaded themselves. It does not do forward ' +
+        'municipality containing a point, the nearest street and house number (beta, opt-in), ' +
+        'plus the boundaries the caller has uploaded themselves. It does not do forward ' +
         'geocoding or place search, routing or distances, and it does not return boundary geometry ' +
         'for the reference layers.',
     },
@@ -105,8 +105,8 @@ export function createServer(): McpServer {
         'array is always present: a boundary set that is unavailable or not granted to this key is',
         'skipped and reported there, while the call itself still succeeds.',
         '',
-        'STREETS (beta, opt-in via base, South Africa at launch and rolling out country by',
-        'country). base.street is ALWAYS three answers, for 5 m, 20 m and unlimited in that order,',
+        'STREETS (beta, opt-in via base, rolling out worldwide). base.street is ALWAYS three',
+        'answers, for 5 m, 20 m and unlimited in that order,',
         'each with radiusMeters, streetNumber, streetName, postcode and distanceMeters. A numbered',
         'address within the radius wins over a nearer street (for the unlimited entry the address',
         'must still be within 20 m); otherwise the nearest named street; unnamed roads never answer.',

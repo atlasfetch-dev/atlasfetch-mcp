@@ -35,9 +35,9 @@ await call("lookup_location", { lat: 0, lng: -30, base: ["country"] });
 await call("lookup_location", { lat: 999, lng: 0 });
 // A set that does not exist: skipped, reported in errors, still a success
 await call("lookup_location", { lat: 51.5072, lng: -0.1276, sets: ["no_such_set"] });
-// Streets (beta): opt-in layer. Adderley Street, Cape Town — covered.
+// Streets (beta): opt-in layer. Adderley Street, Cape Town.
 await call("lookup_location", { lat: -33.9221, lng: 18.4231, base: ["municipal", "street"] });
-// London: administrative layers answer, street is null (no data for that country yet).
+// London: a second street case. Answers once GB is loaded; null until then, and both are correct.
 await call("lookup_location", { lat: 51.5072, lng: -0.1276, base: ["country", "street"] });
 
 await call("list_boundary_sets", {});

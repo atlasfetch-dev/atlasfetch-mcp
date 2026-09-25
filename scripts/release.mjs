@@ -58,9 +58,25 @@ function log(message) {
   console.log(`  ${message}`);
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-  return { status: response.status, body: response.ok ? await response.json() : null };
+// Every HTTP check goes through here. The MCP Registry's search endpoint is
+// genuinely slow — 40s measured while releasing 0.1.5, which a flat 30s timeout
+// turned into a failed release step after npm had already published. So: a
+// timeout the caller chooses, and retries, because "slow" is not "broken".
+async function fetchJson(url, { timeoutMs = 30_000, attempts = 3 } = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      return { status: response.status, body: response.ok ? await response.json() : null };
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        log(`${new URL(url).host} did not answer in ${Math.round(timeoutMs / 1000)}s (${error.message}); retrying`);
+        await sleep(5_000);
+      }
+    }
+  }
+  throw new Error(`${new URL(url).host} did not answer after ${attempts} tries: ${lastError.message}`);
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -74,7 +90,10 @@ async function npmHasVersion() {
 async function registryLatest() {
   // The listing is cached upstream: without the throwaway parameter, verify
   // read 0.1.3 as latest for 0.1.4, which had been live for minutes.
-  const { body } = await fetchJson(`https://registry.modelcontextprotocol.io/v0.1/servers?search=${encodeURIComponent(REGISTRY_NAME)}&t=${Date.now()}`);
+  const { body } = await fetchJson(
+    `https://registry.modelcontextprotocol.io/v0.1/servers?search=${encodeURIComponent(REGISTRY_NAME)}&t=${Date.now()}`,
+    { timeoutMs: 2 * MIN },
+  );
   const entries = (body?.servers ?? []).map(e => ({
     version: (e.server ?? e).version,
     name: (e.server ?? e).name,
@@ -217,8 +236,9 @@ const steps = {
     (stale.length === 0 ? log : m => problems.push(m))(`older versions not deprecated: ${stale.join(", ") || "none"}`);
 
     if (!skip.has("registry")) {
-      // A fresh publish can take a moment to become "latest"; allow three minutes.
-      const deadline = Date.now() + 3 * MIN;
+      // A fresh publish can take a moment to become "latest". Allow five
+      // minutes: each poll of that search endpoint can itself take most of one.
+      const deadline = Date.now() + 5 * MIN;
       let latest = (await registryLatest()).find(e => e.latest);
       while (latest?.version !== version && Date.now() < deadline) {
         log(`MCP Registry still reports ${latest?.version} as latest; checking again in 15s`);

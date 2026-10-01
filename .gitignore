@@ -12,3 +12,7 @@ key.pem
 # MCPB bundle staging and output (attach .mcpb files to GitHub releases, do not commit)
 build/
 *.mcpb
+
+# Local agent orientation: points at private sibling repos, and this repo is public.
+CLAUDE.md
+CLAUDE.local.md

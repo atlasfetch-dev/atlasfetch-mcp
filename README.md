@@ -14,7 +14,7 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 
 | Tool | What it does |
 | --- | --- |
-| `lookup_location` | A coordinate becomes the country, region and municipality containing it, with ISO 3166-1 / 3166-2 codes, plus matches from your own boundary sets. Optionally the **nearest street** (beta — ask for the `street` layer), and the point as an H3 cell or Google Plus Code. |
+| `lookup_location` | A coordinate becomes the country, region and municipality containing it, with ISO 3166-1 / 3166-2 codes, plus matches from your own boundary sets. Optionally the **nearest street** (ask for the `street` layer), and the point as an H3 cell or Google Plus Code. |
 | `list_boundary_sets` | Lists your boundary sets, their counts, and which API keys may query them. |
 | `create_boundary_set` | Creates an empty set for your own polygons. |
 | `add_boundary` | Adds one GeoJSON polygon, with properties returned on every match. |
@@ -23,7 +23,7 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 
 **Not for:** forward geocoding or place search (an address to a coordinate), routing, distances, map tiles, or downloading boundary geometry.
 
-### Streets (beta)
+### Streets
 
 Add the `street` layer and the answer includes the nearest street, and the house number where one is mapped. It is **worldwide**, and **opt-in** — not part of the default `country, region, municipal`.
 

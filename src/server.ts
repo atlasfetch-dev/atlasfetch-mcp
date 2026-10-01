@@ -76,7 +76,7 @@ export function createServer(): McpServer {
     {
       instructions:
         'AtlasFetch answers "which place is this coordinate in?" — the country, region and ' +
-        'municipality containing a point, the nearest street and house number (beta, opt-in), ' +
+        'municipality containing a point, the nearest street and house number (opt-in), ' +
         'plus the boundaries the caller has uploaded themselves. It does not do forward ' +
         'geocoding or place search, routing or distances, and it does not return boundary geometry ' +
         'for the reference layers.',
@@ -105,7 +105,7 @@ export function createServer(): McpServer {
         'array is always present: a boundary set that is unavailable or not granted to this key is',
         'skipped and reported there, while the call itself still succeeds.',
         '',
-        'STREETS (beta, opt-in via base, worldwide). base.street is ALWAYS three',
+        'STREETS (opt-in via base, worldwide). base.street is ALWAYS three',
         'answers, for 5 m, 20 m and unlimited in that order,',
         'each with radiusMeters, streetNumber, streetName, postcode and distanceMeters. A numbered',
         'address within the radius wins over a nearer street (for the unlimited entry the address',
@@ -126,7 +126,7 @@ export function createServer(): McpServer {
           .optional()
           .describe(
             'Which reference layers to resolve. Defaults to country, region and municipal. ' +
-              '"street" is opt-in and beta: add it explicitly to get the nearest street.',
+              '"street" is opt-in: add it explicitly to get the nearest street.',
           ),
         sets: z
           .array(z.string().max(64))

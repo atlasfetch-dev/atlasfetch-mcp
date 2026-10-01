@@ -3,7 +3,7 @@
   "name": "xyz.atlasfetch/atlasfetch",
   "title": "AtlasFetch",
   "description": "Reverse geocode a coordinate to country, region, municipality and street, plus your own geofences.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "websiteUrl": "https://atlasfetch.xyz",
   "repository": {
     "url": "https://github.com/atlasfetch-dev/atlasfetch-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "atlasfetch-mcp",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "transport": {
         "type": "stdio"
       },

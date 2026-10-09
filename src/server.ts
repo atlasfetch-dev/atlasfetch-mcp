@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import {
   ApiError, DEMO_KEY_NOTICE, request, usingDemoKey,
-  type BoundarySet, type LookupResponse, type StreetAnswer,
+  type BoundarySet, type LookupResponse, type RouteResponse, type StreetAnswer,
 } from './api.js'
 import { VERSION } from './version.js'
 
@@ -70,6 +70,42 @@ function summarise(result: LookupResponse): string {
   return parts.join(' · ')
 }
 
+/** 840 -> "840 m", 3513 -> "3.5 km", 51000 -> "51 km". */
+const distance = (meters: number) =>
+  meters >= 1000 ? `${(meters / 1000).toFixed(meters >= 10000 ? 0 : 1)} km` : `${Math.round(meters)} m`
+
+/** 44 -> "44 s", 306 -> "5 min", 3906 -> "1 h 5 min". */
+function clock(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)} s`
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes} min`
+  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`
+}
+
+/**
+ * The line before the JSON: what the route is, at a glance, with the things a
+ * reader would otherwise have to dig for — a location snapped a long way, a
+ * zone the route could not avoid, how far it ran inside a measured one. The
+ * traffic caveat rides along, because a duration with no caveat reads as an ETA.
+ */
+function summariseRoute(result: RouteResponse): string {
+  const { route } = result
+  const parts = [`${route.mode}: ${distance(route.distanceMeters)} · ${clock(route.durationSeconds)}`]
+  if (route.legs.length > 1) parts.push(`${route.legs.length} legs`)
+  const stepCount = route.legs.reduce((total, leg) => total + (leg.steps?.length ?? 0), 0)
+  if (stepCount > 0) parts.push(`${stepCount} steps`)
+  const alternatives = result.alternatives?.length ?? 0
+  if (alternatives > 0) parts.push(`${alternatives} alternative${alternatives === 1 ? '' : 's'}`)
+  const far = result.locations.filter(l => l.snapDistanceMeters >= 50)
+  if (far.length > 0) {
+    parts.push(`a location moved ${distance(Math.max(...far.map(l => l.snapDistanceMeters)))} to reach a road`)
+  }
+  for (const zone of route.exposure ?? []) parts.push(`${distance(zone.metersInside)} inside ${zone.zone}`)
+  const skipped = result.avoid?.skipped?.length ?? 0
+  if (skipped > 0) parts.push(`${skipped} avoid zone${skipped === 1 ? '' : 's'} skipped`)
+  return `${parts.join(' · ')} — free-flow, no traffic`
+}
+
 export function createServer(): McpServer {
   const server = new McpServer(
     { name: 'atlasfetch', version: VERSION },
@@ -77,9 +113,10 @@ export function createServer(): McpServer {
       instructions:
         'AtlasFetch answers "which place is this coordinate in?" — the country, region and ' +
         'municipality containing a point, the nearest street and house number (opt-in), ' +
-        'plus the boundaries the caller has uploaded themselves. It does not do forward ' +
-        'geocoding or place search, routing or distances, and it does not return boundary geometry ' +
-        'for the reference layers.',
+        'plus the boundaries the caller has uploaded themselves. It also routes between ' +
+        'coordinates, optionally around those same boundaries (get_route, 10 lookups a call, ' +
+        'free-flow durations with no traffic). It does not do forward geocoding or place search, ' +
+        'and it does not return boundary geometry for the reference layers.',
     },
   )
 
@@ -96,8 +133,9 @@ export function createServer(): McpServer {
         'Use for: which country, region or municipality a point is in; which street a point is on',
         '(add "street" to base); geofence checks against your own polygons; tagging data with region',
         'codes.',
-        'Do NOT use for: forward geocoding or place search (an address to a coordinate), routing,',
-        'distances, or fetching boundary geometry.',
+        'Do NOT use for: forward geocoding or place search (an address to a coordinate), or',
+        'fetching boundary geometry. For a route, a travel distance or a travel time between',
+        'points, use get_route instead — but note it costs 10 lookups to this one’s 1.',
         '',
         'Caveats worth repeating to the user: municipal is the finest unit AVAILABLE, not a',
         'consistent kind of thing — Los Angeles returns a city, rural Kansas returns a county, so',
@@ -318,6 +356,137 @@ export function createServer(): McpServer {
           body: { set, name, geometry, properties },
         })
         return ok(`Added "${name}" to set "${set}".\n\n${json(created)}`)
+      } catch (error) {
+        return fail(error)
+      }
+    },
+  )
+
+  // ── Directions ─────────────────────────────────────────────────────────────
+  server.registerTool(
+    'get_route',
+    {
+      title: 'Route between coordinates, optionally avoiding your own zones',
+      description: [
+        'A driving, cycling, walking or truck route from the first location to the last, via any',
+        'in between, with distance, duration and turn-by-turn steps.',
+        '',
+        'COST: a route is 10 LOOKUPS, not one. Everything it returns is included in that, but it',
+        'is ten times a lookup, so do not call it in a loop to compare options without saying so.',
+        '',
+        'Durations are FREE-FLOW: the road network at its own speed limits, with NO live or',
+        'historical traffic. Never present one as an arrival time in traffic — for that, say a',
+        'traffic-aware service (Google, Mapbox) is needed.',
+        '',
+        'The route line is NOT returned unless geometry is set, because an encoded polyline is',
+        'thousands of characters that no one reads. Ask for it only when something will draw it.',
+        '',
+        'Locations are SNAPPED to the nearest routable road, and locations[] in the response says',
+        'how far each one moved. A large snapDistanceMeters means the answer starts somewhere else',
+        'than asked — worth repeating to the user.',
+        '',
+        'avoidSets and exposureSets name BOUNDARY SETS on the account (list_boundary_sets), not',
+        'ad-hoc shapes. avoid routes around every zone in those sets; exposure leaves the route',
+        'alone and reports how far it ran inside each zone. A zone containing one of the locations',
+        'cannot be avoided for that route: it is skipped and reported in avoid.skipped.',
+        '',
+        'Limits by plan: 2 locations and 1 alternative on the free plans, up to 25 and 2 on Pro;',
+        'truck is Pro only; alternatives need exactly 2 locations. Over a cap the answer is 403,',
+        'and nothing is billed. A location with no road near it, or two places with no road',
+        'between them, is 422 — and that one IS billed, because the route was attempted.',
+        '',
+        'Not for: distance matrices, isochrones or live traffic (none exist yet), and not for',
+        'which-area-is-this questions — that is lookup_location, at one lookup.',
+      ].join('\n'),
+      inputSchema: {
+        locations: z
+          .array(
+            z.object({
+              lat: z.number().min(-90).max(90).describe('Latitude, -90 to 90.'),
+              lng: z.number().min(-180).max(180).describe('Longitude, -180 to 180.'),
+            }),
+          )
+          .min(2)
+          .max(25)
+          .describe('Origin, any stops in order, then destination. 2 on the free plans, up to 25 on Pro.'),
+        mode: z
+          .enum(['car', 'bike', 'foot', 'truck'])
+          .optional()
+          .describe('Travel mode. Defaults to car. "truck" is Pro only and obeys vehicle limits.'),
+        steps: z
+          .boolean()
+          .optional()
+          .describe('Turn-by-turn steps per leg. Defaults to true here; set false for distance and time only.'),
+        alternatives: z
+          .number()
+          .int()
+          .min(0)
+          .max(2)
+          .optional()
+          .describe('Also return up to this many other routes. Exactly 2 locations only. Plan-capped.'),
+        avoidSets: z
+          .array(z.string().max(64))
+          .optional()
+          .describe('Names of boundary sets on this account to route AROUND. Every zone in them is excluded.'),
+        exposureSets: z
+          .array(z.string().max(64))
+          .optional()
+          .describe(
+            'Names of boundary sets to MEASURE against: the route is unchanged, and the answer says how ' +
+              'many metres of it ran inside each zone.',
+          ),
+        geometry: z
+          .enum(['none', 'polyline6', 'geojson'])
+          .optional()
+          .describe(
+            'The route line. Defaults to none. Ask for polyline6 or geojson only when something will ' +
+              'draw it: it is long, and an assistant cannot read it usefully.',
+          ),
+        language: z
+          .string()
+          .max(16)
+          .optional()
+          .describe('Language for the step instructions, e.g. "en-GB", "de-DE", "fr-FR". Defaults to en-US.'),
+        vehicle: z
+          .object({
+            heightMeters: z.number().optional(),
+            widthMeters: z.number().optional(),
+            lengthMeters: z.number().optional(),
+            weightTonnes: z.number().optional(),
+            axleLoadTonnes: z.number().optional(),
+            hazmat: z.boolean().optional(),
+          })
+          .optional()
+          .describe('Truck dimensions and load. Only with mode "truck"; rejected otherwise.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ locations, mode, steps, alternatives, avoidSets, exposureSets, geometry, language, vehicle }) => {
+      try {
+        const result = await request<RouteResponse>('/route', {
+          method: 'POST',
+          body: {
+            locations,
+            mode,
+            // Steps are the point of asking an assistant for directions, so they
+            // are on unless turned off — the API itself defaults them off.
+            steps: steps ?? true,
+            alternatives,
+            geometry: geometry ?? 'none',
+            language,
+            vehicle,
+            avoid: avoidSets?.length ? { sets: avoidSets } : undefined,
+            exposure: exposureSets?.length ? { sets: exposureSets } : undefined,
+          },
+        })
+
+        const notes = [
+          ...result.warnings.map(w => `- [${w.type}] ${w.message ?? ''}`.trimEnd()),
+          ...result.errors.map(e => `- [${e.type}] ${e.message}`),
+        ]
+        const problems = notes.length > 0 ? `\n\nNotes (the route still answered):\n${notes.join('\n')}` : ''
+
+        return ok(`${summariseRoute(result)}\n\n${json(result)}${problems}`)
       } catch (error) {
         return fail(error)
       }

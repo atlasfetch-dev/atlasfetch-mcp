@@ -40,6 +40,10 @@ await call("lookup_location", { lat: -33.9221, lng: 18.4231, base: ["municipal",
 // London: a second street case, in another country.
 await call("lookup_location", { lat: 51.5072, lng: -0.1276, base: ["country", "street"] });
 
+// Directions: a short car route, and the plan refusal a demo key should get.
+await call("get_route", { locations: [{ lat: -33.9242, lng: 18.4210 }, { lat: -33.9068, lng: 18.4201 }] });
+await call("get_route", { locations: [{ lat: -33.9242, lng: 18.4210 }, { lat: -33.9068, lng: 18.4201 }], mode: "truck" });
+
 await call("list_boundary_sets", {});
 // Wrong shape on purpose: a Feature instead of a geometry
 await call("add_boundary", { set: "demo", name: "x", geometry: { type: "Feature", properties: {}, geometry: {} } });

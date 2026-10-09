@@ -15,13 +15,32 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 | Tool | What it does |
 | --- | --- |
 | `lookup_location` | A coordinate becomes the country, region and municipality containing it, with ISO 3166-1 / 3166-2 codes, plus matches from your own boundary sets. Optionally the **nearest street** (ask for the `street` layer), and the point as an H3 cell or Google Plus Code. |
+| `get_route` | A route between 2 and 25 coordinates by car, bike, foot or truck, with turn-by-turn steps — optionally **around** your own zones, or **measuring** how far it runs inside them. |
 | `list_boundary_sets` | Lists your boundary sets, their counts, and which API keys may query them. |
 | `create_boundary_set` | Creates an empty set for your own polygons. |
 | `add_boundary` | Adds one GeoJSON polygon, with properties returned on every match. |
 
-**Good for:** reverse geocoding to administrative areas, finding the street a point is on, geofencing against your own delivery zones or service areas, jurisdiction and region checks, tagging location data with region codes.
+**Good for:** reverse geocoding to administrative areas, finding the street a point is on, geofencing against your own delivery zones or service areas, jurisdiction and region checks, tagging location data with region codes, and routing that keeps out of the areas you name.
 
-**Not for:** forward geocoding or place search (an address to a coordinate), routing, distances, map tiles, or downloading boundary geometry.
+**Not for:** forward geocoding or place search (an address to a coordinate), traffic-aware ETAs, distance matrices, isochrones, map tiles, or downloading boundary geometry.
+
+### Directions
+
+`get_route` returns distance, duration and turn-by-turn steps between 2 and 25 coordinates, for `car`, `bike`, `foot` or `truck`.
+
+```
+car: 3.5 km · 5 min · 11 steps · a location moved 62 m to reach a road — free-flow, no traffic
+```
+
+Three things worth knowing before you wire it up:
+
+- **A route costs 10 lookups**, not one. Everything it returns is included in that, but it is ten times a lookup.
+- **Durations are free-flow** — the network at its own speed limits, with no live or historical traffic. They are not ETAs. For those, use a traffic-aware service.
+- **The route line is off by default** (`geometry: "none"`). An encoded polyline is thousands of characters an assistant cannot read; ask for `polyline6` or `geojson` only when something will draw it.
+
+**Your own zones, in a route.** `avoidSets` names boundary sets to route *around*; `exposureSets` names sets to *measure* against, leaving the route alone and reporting how many metres of it ran inside each zone. A zone containing one of your locations cannot be avoided for that route — it is skipped, and the answer says so.
+
+Plan limits apply: 2 locations on the free plans and up to 25 on Pro, truck is Pro only, and alternatives need exactly 2 locations. Over a cap the answer is a `403` and nothing is billed; a location with no road near it is a `422`, and that one **is** billed, because the route was attempted.
 
 ### Streets
 

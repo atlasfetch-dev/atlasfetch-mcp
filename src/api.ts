@@ -134,6 +134,14 @@ export async function request<T>(
       throw new ApiError(`The current plan does not allow this, or a cap was exceeded: ${detail}`, 403)
     case 404:
       throw new ApiError(detail || 'Not found.', 404)
+    case 422:
+      // Routing only: the request was valid and was attempted, so it IS billed.
+      // Retrying the identical route cannot succeed; the locations must move.
+      throw new ApiError(
+        `${detail} This one was billed, because the route was attempted. Retrying the same ` +
+          'locations will fail the same way — move them nearer a road, or closer together.',
+        422,
+      )
     case 409:
       throw new ApiError(detail || 'Conflict — something of that name already exists.', 409)
     case 429: {
@@ -144,6 +152,13 @@ export async function request<T>(
         true,
       )
     }
+    case 503:
+      throw new ApiError(
+        `The routing engine is not answering right now (${detail}). Nothing was billed. ` +
+          'Lookups are unaffected; try the route again in a few minutes.',
+        503,
+        true,
+      )
     default:
       throw new ApiError(`AtlasFetch returned ${response.status}: ${detail}`, response.status, response.status >= 500)
   }
@@ -182,6 +197,51 @@ export interface LookupResponse {
   encoded?: { h3?: string; pluscode?: string }
   /** Always present, empty or not. Per-set problems appear here WITH a 200. */
   errors: Array<{ type: 'access' | 'usage'; message: string }>
+}
+
+// ── Routing ──────────────────────────────────────────────────────────────────
+// POST /route, spec 1.3.0. Metres and seconds throughout, and durations are
+// free-flow: no live or historical traffic.
+
+export interface RouteStep {
+  /** depart, arrive, continue, turn-left, …, roundabout, ferry, other. */
+  maneuver: string
+  instruction: string
+  streetNames: string[]
+  distanceMeters: number
+  durationSeconds: number
+}
+
+export interface RouteLeg {
+  distanceMeters: number
+  durationSeconds: number
+  /** Only when `steps: true` was asked for. */
+  steps?: RouteStep[]
+}
+
+export interface Route {
+  mode: string
+  distanceMeters: number
+  durationSeconds: number
+  legs: RouteLeg[]
+  /** Only when `geometry` was asked for; omitted by default on purpose. */
+  geometry?: string | { type: string; coordinates: number[][] }
+  /** Only when `exposure.sets` was asked for. */
+  exposure?: Array<{ set: string; zone: string; properties?: unknown; metersInside: number }>
+}
+
+export interface RouteResponse {
+  route: Route
+  alternatives?: Route[]
+  /** The SNAPPED locations, and how far each moved to reach a road. */
+  locations: Array<{ lat: number; lng: number; snapDistanceMeters: number }>
+  avoid?: {
+    applied: Array<{ set: string; zone: string }>
+    /** A zone holding one of the locations cannot be avoided for that route. */
+    skipped: Array<{ set: string; zone: string; reason: string; locationIndex?: number }>
+  }
+  warnings: Array<{ type: string; message?: string }>
+  errors: Array<{ type: string; message: string }>
 }
 
 /**

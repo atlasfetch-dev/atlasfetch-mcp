@@ -44,7 +44,16 @@ await call("lookup_location", { lat: 51.5072, lng: -0.1276, base: ["country", "s
 await call("get_route", { locations: [{ lat: -33.9242, lng: 18.4210 }, { lat: -33.9068, lng: 18.4201 }] });
 await call("get_route", { locations: [{ lat: -33.9242, lng: 18.4210 }, { lat: -33.9068, lng: 18.4201 }], mode: "truck" });
 
+// Geocoding (ZA): an exact house, a street-level guess, and an uncovered country.
+await call("geocode_address", { q: "25 Adderley Street, Cape Town" });
+await call("geocode_address", { q: "9999 Long Street, Cape Town" });
+await call("geocode_address", { q: "10 Downing Street, London", country: "GB" });
+// streetGeometry implies the street layer, so municipal alone still gets a street with a line.
+await call("lookup_location", { lat: -26.2041, lng: 28.0473, base: ["municipal"], streetGeometry: "polyline6" });
+
 await call("list_boundary_sets", {});
+// update_boundary on a name that is not there: refused before anything is changed.
+await call("update_boundary", { set: "custom1", name: "smoke-no-such-zone", geometry: { type: "Polygon", coordinates: [[[18.4, -33.93], [18.4, -33.9], [18.44, -33.9], [18.4, -33.93]]] } });
 // Wrong shape on purpose: a Feature instead of a geometry
 await call("add_boundary", { set: "demo", name: "x", geometry: { type: "Feature", properties: {}, geometry: {} } });
 

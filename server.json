@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "xyz.atlasfetch/atlasfetch",
   "title": "AtlasFetch",
-  "description": "Reverse geocode a coordinate to country, region, municipality, street; route around your geofences.",
-  "version": "0.2.0",
+  "description": "Coordinates to places and streets, ZA addresses to points, and routes around your own geofences.",
+  "version": "0.3.0",
   "websiteUrl": "https://atlasfetch.xyz",
   "repository": {
     "url": "https://github.com/atlasfetch-dev/atlasfetch-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "atlasfetch-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "transport": {
         "type": "stdio"
       },

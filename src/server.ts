@@ -2,7 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import {
   ApiError, DEMO_KEY_NOTICE, request, usingDemoKey,
-  type BoundarySet, type LookupResponse, type RouteResponse, type StreetAnswer,
+  type BoundarySet, type GeocodeResponse, type GeocodeResult, type LookupResponse, type RouteResponse,
+  type StoredBoundary, type StreetAnswer,
 } from './api.js'
 import { VERSION } from './version.js'
 
@@ -106,6 +107,42 @@ function summariseRoute(result: RouteResponse): string {
   return `${parts.join(' · ')} — free-flow, no traffic`
 }
 
+/**
+ * The dispatch table from the API's docs, applied: what to DO with a geocode.
+ * Ambiguity is checked first, because an ambiguous house is still the wrong
+ * house half the time, however precise it claims to be.
+ */
+function dispatchAdvice(result: GeocodeResult): string {
+  if (result.ambiguous || result.precision === 'locality') {
+    return 'ask the customer before dispatching'
+  }
+  if (result.precision === 'street') {
+    return 'right street, not the house: ask the recipient for a pin or a landmark'
+  }
+  if (result.confidence < 0.5) {
+    return 'house found, but with low confidence: check with the customer'
+  }
+  return 'dispatch'
+}
+
+/** "address · 0.96 · 25 Adderley Street, Cape Town, ZA-WC — dispatch". */
+function summariseGeocode(result: GeocodeResult | null): string {
+  if (!result) return 'Nothing trustworthy found for that address. The lookup was still billed.'
+  const m = result.matched
+  const where = [
+    [m.housenumber, m.street].filter(Boolean).join(' '),
+    m.locality,
+    m.region ?? m.country,
+  ].filter(Boolean).join(', ')
+  const flags = [
+    result.precision,
+    `confidence ${result.confidence}`,
+    ...(result.ambiguous ? ['ambiguous'] : []),
+    ...(result.unmatched.length > 0 ? [`unmatched: ${result.unmatched.join(', ')}`] : []),
+  ]
+  return `${flags.join(' · ')} · ${where} — ${dispatchAdvice(result)}`
+}
+
 export function createServer(): McpServer {
   const server = new McpServer(
     { name: 'atlasfetch', version: VERSION },
@@ -114,9 +151,10 @@ export function createServer(): McpServer {
         'AtlasFetch answers "which place is this coordinate in?" — the country, region and ' +
         'municipality containing a point, the nearest street and house number (opt-in), ' +
         'plus the boundaries the caller has uploaded themselves. It also routes between ' +
-        'coordinates, optionally around those same boundaries (get_route, 10 lookups a call, ' +
-        'free-flow durations with no traffic). It does not do forward geocoding or place search, ' +
-        'and it does not return boundary geometry for the reference layers.',
+        'coordinates, optionally around those same boundaries (get_route, 10 lookups a call on the ' +
+        'standard plans, free-flow durations with no traffic), and geocodes addresses to ' +
+        'coordinates in South Africa (geocode_address, 1 lookup). It does not search for places ' +
+        'by name, and it does not return boundary geometry for the reference layers.',
     },
   )
 
@@ -133,9 +171,9 @@ export function createServer(): McpServer {
         'Use for: which country, region or municipality a point is in; which street a point is on',
         '(add "street" to base); geofence checks against your own polygons; tagging data with region',
         'codes.',
-        'Do NOT use for: forward geocoding or place search (an address to a coordinate), or',
-        'fetching boundary geometry. For a route, a travel distance or a travel time between',
-        'points, use get_route instead — but note it costs 10 lookups to this one’s 1.',
+        'For the other direction, an address to a coordinate, use geocode_address. For a route,',
+        'a travel distance or a travel time, use get_route — 10 lookups on the standard plans to',
+        'this one’s 1. Do NOT use for place search by name or for fetching boundary geometry.',
         '',
         'Caveats worth repeating to the user: municipal is the finest unit AVAILABLE, not a',
         'consistent kind of thing — Los Angeles returns a city, rural Kansas returns a county, so',
@@ -151,7 +189,8 @@ export function createServer(): McpServer {
         'Two different nulls: base.street === null means there is no street data for the point’s',
         'country, while an entry whose fields are null means nothing was within that radius —',
         'never report them the same way. streetNumber and postcode are STRINGS (44A, 12-14, 0181),',
-        'house numbers are rare outside well-mapped areas, and no street geometry is returned.',
+        'house numbers are rare outside well-mapped areas. Street geometry comes back only when',
+        'streetGeometry is set — leave it off unless something will draw the line.',
         '',
         'One call is one billed lookup however many layers, sets or grid codes it touches, and a',
         'call that matches nothing still bills.',
@@ -185,16 +224,30 @@ export function createServer(): McpServer {
           ])
           .optional()
           .describe('Plus Code length. 9 is not a valid length. 10 is about 14 m.'),
+        streetGeometry: z
+          .enum(['polyline6', 'geojson'])
+          .optional()
+          .describe(
+            'Give each street answer the line of the street it names, trimmed to about 250 m either ' +
+              'side of the point. Implies the street layer. Off by default, and leave it off unless ' +
+              'something will draw it: a line is hundreds of characters nobody reads.',
+          ),
       },
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    async ({ lat, lng, base, sets, encode, h3res, pluslen }) => {
+    async ({ lat, lng, base, sets, encode, h3res, pluslen, streetGeometry }) => {
       try {
+        // The API refuses streetgeom without the street layer. Asking for the line
+        // of the street means asking for the street, so add it rather than fail.
+        const layers = streetGeometry && !(base ?? []).includes('street')
+          ? [...(base ?? ['country', 'region', 'municipal']), 'street']
+          : base
         const result = await request<LookupResponse>('/location/lookup', {
           query: {
             lat: String(lat),
             lng: String(lng),
-            base: base?.join(','),
+            base: layers?.join(','),
+            streetgeom: streetGeometry,
             set: sets?.join(','),
             encode: encode?.join(','),
             h3res: h3res === undefined ? undefined : String(h3res),
@@ -208,6 +261,107 @@ export function createServer(): McpServer {
           : ''
 
         return ok(`${summarise(result)}\n\n${json(result)}${skipped}`)
+      } catch (error) {
+        return fail(error)
+      }
+    },
+  )
+
+  // ── Geocoding ─────────────────────────────────────────────────────────────
+  server.registerTool(
+    'geocode_address',
+    {
+      title: 'Geocode an address to a coordinate (South Africa)',
+      description: [
+        'Turn ONE address into a point, with an honest account of how much of it was found. Built',
+        'for deliveries. South Africa today; more countries as their data loads. 1 lookup per',
+        'address, found or not.',
+        '',
+        'Send either q (one line) or address (housenumber, street, suburb, city, postcode, unit) —',
+        'never both. If the address is already split, send it split: it matches better.',
+        '',
+        'READ precision BEFORE using the point. "address" means the house was found;',
+        '"interpolated" means it was estimated between the numbers either side; "street" means the',
+        'right street but NOT the house; "locality" means only the suburb or town. NEVER present',
+        'a street- or locality-level point as a door: a driver sent there will be at the wrong',
+        'house. In South Africa most answers are street-level, because OpenStreetMap has house',
+        'numbers on about 13% of street names — that is the data being honest, not a failure.',
+        '',
+        'What to do with an answer — the result line says which applies:',
+        '- address or interpolated, not ambiguous, confidence 0.5 or more: dispatch.',
+        '- street: ask the recipient for a pin or a landmark.',
+        '- ambiguous, or locality: ask the customer before dispatching.',
+        'confidence ranks answers; it is NOT a probability. ambiguous means a same-named street',
+        'elsewhere scored about as well. result null means nothing trustworthy was found, and',
+        'that still costs the lookup.',
+        '',
+        'country is a hard filter; region (ZA-WC, or "Western Cape") only ranks streets inside it',
+        'first, so a wrong province does not lose the address. An uncovered country is refused,',
+        'unbilled, with the list of covered countries in the message — that message is the live',
+        'coverage list; there is no other. sets and base answer "which delivery zone is it in" in',
+        'the same call, at no extra cost.',
+        '',
+        'One address per call, deliberately. For a delivery list, call this once per row so the',
+        'user sees what is being spent; programs with thousands of rows should use the API’s',
+        'POST /geocode/batch directly. Not for: searching for a business or landmark by name,',
+        'or a coordinate to an address (that is lookup_location with the street layer).',
+      ].join('\n'),
+      inputSchema: {
+        q: z.string().max(300).optional().describe('The whole address on one line, e.g. "25 Adderley Street, Cape Town".'),
+        address: z
+          .object({
+            housenumber: z.string().max(120).optional(),
+            street: z.string().max(120).optional(),
+            suburb: z.string().max(120).optional(),
+            city: z.string().max(120).optional(),
+            postcode: z.string().max(120).optional(),
+            unit: z.string().max(120).optional(),
+          })
+          .optional()
+          .describe('The address already split into parts. Needs at least a street. Use instead of q.'),
+        country: z
+          .string()
+          .length(2)
+          .optional()
+          .describe('ISO 3166-1 alpha-2, e.g. "ZA". A hard filter: only that country is searched.'),
+        region: z
+          .string()
+          .max(120)
+          .optional()
+          .describe('ISO 3166-2 ("ZA-WC") or a name ("Western Cape"). A preference, not a filter.'),
+        sets: z
+          .array(z.string().max(64))
+          .optional()
+          .describe('Boundary sets on this account to match at the found point, e.g. delivery zones.'),
+        base: z
+          .array(z.enum(['country', 'region', 'municipal']))
+          .optional()
+          .describe('Administrative layers to resolve at the found point.'),
+        streetGeometry: z
+          .enum(['polyline6', 'geojson'])
+          .optional()
+          .describe('The matched street’s line, trimmed to about 250 m. Only if something will draw it.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ q, address, country, region, sets, base, streetGeometry }) => {
+      // Refuse locally rather than spend a request on a shape the API refuses.
+      if ((q === undefined) === (address === undefined)) {
+        return {
+          content: [{ type: 'text', text: 'Send either q (one line) or address (split into parts) — exactly one of them.' }],
+          isError: true,
+        }
+      }
+      try {
+        const answer = await request<GeocodeResponse>('/geocode', {
+          method: 'POST',
+          body: { q, address, country, region, set: sets, base, streetgeom: streetGeometry },
+        })
+        const problems = answer.errors.length > 0
+          ? `\n\nPartial problems (the geocode still answered):\n${
+              answer.errors.map(e => `- [${e.type}] ${e.message}`).join('\n')}`
+          : ''
+        return ok(`${summariseGeocode(answer.result)}\n\n${json(answer)}${problems}`)
       } catch (error) {
         return fail(error)
       }
@@ -362,6 +516,88 @@ export function createServer(): McpServer {
     },
   )
 
+  server.registerTool(
+    'update_boundary',
+    {
+      title: 'Move or reshape a boundary, keeping its name and properties',
+      description: [
+        'Replace the shape of ONE existing boundary. Its id, name, properties and set stay as they',
+        'are, so every lookup that matches it keeps returning the same properties.',
+        '',
+        'Use this to fix or move a zone. Do NOT delete it and add it again: that gives it a new id',
+        'and loses the properties unless they are re-sent.',
+        '',
+        'Name the boundary by set and name; this finds its id. If a set holds two boundaries with',
+        'that name, the answer lists their ids and asks for one. The new shape gets the same',
+        'checks as add_boundary, including the plan’s points-per-boundary cap (refused, unbilled).',
+        'Only boundaries on this account can be changed.',
+      ].join('\n'),
+      inputSchema: {
+        set: z.string().max(64).describe('The set the boundary is in.'),
+        name: z.string().max(100).optional().describe('The boundary’s name. Use this or id.'),
+        id: z
+          .string()
+          .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'A boundary id is a UUID; give the name instead.')
+          .optional()
+          .describe('The boundary’s id (a UUID), when it is known. Use this or name.'),
+        geometry: z
+          .object({
+            type: z.literal('Polygon'),
+            coordinates: z
+              .array(z.array(z.array(z.number()).min(2).max(3)).min(4))
+              .min(1)
+              .describe('Rings of [longitude, latitude]; the first is the outline, any others holes. Each ring closed.'),
+          })
+          .describe('The new shape: a GeoJSON Polygon.'),
+      },
+      // destructiveHint: the old shape is gone. idempotentHint: sending the same
+      // shape twice leaves the same boundary.
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ set, name, id, geometry }) => {
+      if (!id && !name) {
+        return { content: [{ type: 'text', text: 'Name the boundary (name) or give its id.' }], isError: true }
+      }
+      try {
+        let target = id
+        if (!target) {
+          const view = await request<{ boundaries: StoredBoundary[] }>('/boundaries/view', { query: { set } })
+          const matches = view.boundaries.filter(b => b.name === name)
+          if (matches.length === 0) {
+            const names = view.boundaries.map(b => b.name)
+            return {
+              content: [{
+                type: 'text',
+                text: `No boundary named "${name}" in set "${set}".` +
+                  (names.length > 0 ? ` Its boundaries are: ${names.join(', ')}.` : ' The set is empty.'),
+              }],
+              isError: true,
+            }
+          }
+          if (matches.length > 1) {
+            return {
+              content: [{
+                type: 'text',
+                text: `Set "${set}" has ${matches.length} boundaries named "${name}". Call again with one ` +
+                  `of these ids: ${matches.map(b => `${b.id} (${b.pointCount ?? '?'} points)`).join(', ')}.`,
+              }],
+              isError: true,
+            }
+          }
+          target = matches[0].id
+        }
+        const updated = await request<StoredBoundary>(`/boundaries/${encodeURIComponent(target)}`, {
+          method: 'PATCH',
+          body: { geometry },
+        })
+        return ok(`Reshaped "${updated.name}" in set "${updated.set ?? set}"; its properties are unchanged.\n\n${
+          json({ ...updated, geometry: undefined })}`)
+      } catch (error) {
+        return fail(error)
+      }
+    },
+  )
+
   // ── Directions ─────────────────────────────────────────────────────────────
   server.registerTool(
     'get_route',
@@ -371,8 +607,9 @@ export function createServer(): McpServer {
         'A driving, cycling, walking or truck route from the first location to the last, via any',
         'in between, with distance, duration and turn-by-turn steps.',
         '',
-        'COST: a route is 10 LOOKUPS, not one. Everything it returns is included in that, but it',
-        'is ten times a lookup, so do not call it in a loop to compare options without saying so.',
+        'COST: a route is 10 LOOKUPS on the standard plans, not one (a custom plan may charge less;',
+        'X-Lookups-Remaining is always the truth). Everything it returns is included in that, so do',
+        'not call it in a loop to compare options without saying so.',
         '',
         'Durations are FREE-FLOW: the road network at its own speed limits, with NO live or',
         'historical traffic. Never present one as an arrival time in traffic — for that, say a',

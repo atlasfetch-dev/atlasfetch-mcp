@@ -15,14 +15,16 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 | Tool | What it does |
 | --- | --- |
 | `lookup_location` | A coordinate becomes the country, region and municipality containing it, with ISO 3166-1 / 3166-2 codes, plus matches from your own boundary sets. Optionally the **nearest street** (ask for the `street` layer), and the point as an H3 cell or Google Plus Code. |
+| `geocode_address` | An address becomes a point, in South Africa today, with a **precision** that says whether the house, the street or only the suburb was found — and what to do about it. |
 | `get_route` | A route between 2 and 25 coordinates by car, bike, foot or truck, with turn-by-turn steps — optionally **around** your own zones, or **measuring** how far it runs inside them. |
 | `list_boundary_sets` | Lists your boundary sets, their counts, and which API keys may query them. |
 | `create_boundary_set` | Creates an empty set for your own polygons. |
 | `add_boundary` | Adds one GeoJSON polygon, with properties returned on every match. |
+| `update_boundary` | Moves or reshapes one boundary, keeping its id, name and properties. |
 
-**Good for:** reverse geocoding to administrative areas, finding the street a point is on, geofencing against your own delivery zones or service areas, jurisdiction and region checks, tagging location data with region codes, and routing that keeps out of the areas you name.
+**Good for:** reverse geocoding to administrative areas, finding the street a point is on, geofencing against your own delivery zones or service areas, jurisdiction and region checks, tagging location data with region codes, geocoding delivery addresses in South Africa, and routing that keeps out of the areas you name.
 
-**Not for:** forward geocoding or place search (an address to a coordinate), traffic-aware ETAs, distance matrices, isochrones, map tiles, or downloading boundary geometry.
+**Not for:** geocoding outside South Africa (yet), searching for places by name, traffic-aware ETAs, distance matrices, isochrones, map tiles, or downloading boundary geometry.
 
 ### Directions
 
@@ -42,6 +44,19 @@ Three things worth knowing before you wire it up:
 
 Plan limits apply: 2 locations on the free plans and up to 25 on Pro, truck is Pro only, and alternatives need exactly 2 locations. Over a cap the answer is a `403` and nothing is billed; a location with no road near it is a `422`, and that one **is** billed, because the route was attempted.
 
+### Geocoding
+
+`geocode_address` turns one address into a point — `q` on one line, or `address` already split into parts. South Africa today.
+
+```
+address · confidence 0.96 · 25 Adderley Street, Cape Town, ZA-WC — dispatch
+street · confidence 0.47 · ambiguous · Long Street, Cape Town, ZA-WC — ask the customer before dispatching
+```
+
+**Read the precision before you use the point.** `address` is the house; `interpolated` is estimated between the numbers either side; `street` is the right street but not the house; `locality` is only the suburb. The result line applies the API's own advice for deliveries: dispatch only on a house-level answer that is not ambiguous, ask the recipient for a pin on a street-level one, and ask the customer when it is ambiguous. In South Africa most answers are street-level, because OpenStreetMap has house numbers on about 13% of street names.
+
+One address per call, at 1 lookup each, found or not. That is deliberate: a delivery list goes through one row at a time, where you can see what it spends. Programs with thousands of rows should call `POST /geocode/batch` on the API directly.
+
 ### Streets
 
 Add the `street` layer and the answer includes the nearest street, and the house number where one is mapped. It is **worldwide**, and **opt-in** — not part of the default `country, region, municipal`.
@@ -56,7 +71,7 @@ You always get three answers — for 5 m, 20 m and unlimited — because "the ne
 ]
 ```
 
-**Two nulls that mean different things:** `"street": null` means there is no street data for that country, while an entry whose fields are null means nothing was within that radius. `streetNumber` and `postcode` are strings (`44A`, `12-14`, `0181`); house numbers are rare outside well-mapped areas; no street geometry is returned.
+**Two nulls that mean different things:** `"street": null` means there is no street data for that country, while an entry whose fields are null means nothing was within that radius. `streetNumber` and `postcode` are strings (`44A`, `12-14`, `0181`); house numbers are rare outside well-mapped areas. Set `streetGeometry` and each answer also carries the street's line, trimmed to about 250 m — leave it off unless something will draw it.
 
 ## Install
 
@@ -90,7 +105,7 @@ Requires Node 20 or newer.
 
 The demo key is shared by **every** anonymous user on the internet — one pooled quota and rate limit. Fine for a first look, wrong for anything real.
 
-Create your own at [atlasfetch.xyz/dashboard](https://atlasfetch.xyz/dashboard) and set `ATLASFETCH_API_KEY`. The free Personal plan needs no card.
+Create your own at [atlasfetch.xyz/dashboard](https://atlasfetch.xyz/dashboard) and set `ATLASFETCH_API_KEY`. The free Personal plan needs no card. You can copy a key from the dashboard at any time — so restrict it to your own domains there. Keys made before 12 October 2026 were revoked; if yours stops working, copy a live one.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -105,7 +120,7 @@ Create your own at [atlasfetch.xyz/dashboard](https://atlasfetch.xyz/dashboard) 
 
 ## Billing
 
-One call is one lookup, however many layers, sets or grid codes it touches. Metering happens before matching, so a lookup that matches nothing still counts. Requests rejected as invalid or rate-limited are not billed.
+A lookup or a geocoded address is one lookup; a route is 10 on the standard plans. A lookup is one, however many layers, sets or grid codes it touches. Metering happens before matching, so a lookup that matches nothing still counts. Requests rejected as invalid or rate-limited are not billed.
 
 ## Development
 

@@ -120,8 +120,12 @@ export async function request<T>(
       throw new ApiError(`The request was rejected: ${detail}`, 400)
     case 401:
       throw new ApiError(
-        `The API key was rejected (${detail}). Check ATLASFETCH_API_KEY, or create a new key at ` +
-          'https://atlasfetch.xyz/dashboard — keys are shown once and stored hashed.',
+        // Since 2026-10-12 keys can be shown again in the dashboard, and every key
+        // made before then was revoked. Someone holding an old key is told to copy
+        // a live one, not to start over.
+        `The API key was rejected (${detail}). Copy a live key from ` +
+          'https://atlasfetch.xyz/dashboard, where keys can be shown at any time, and set it as ' +
+          'ATLASFETCH_API_KEY. Keys made before 12 October 2026 were revoked.',
         401,
       )
     case 402:
@@ -184,6 +188,8 @@ export interface StreetAnswer {
   streetName: string | null
   postcode: string | null
   distanceMeters: number | null
+  /** Only when streetgeom was asked for: the named street, trimmed to about 250 m. */
+  geometry?: string | { type: string; coordinates: number[][] } | null
 }
 
 export interface LookupResponse {
@@ -197,6 +203,40 @@ export interface LookupResponse {
   encoded?: { h3?: string; pluscode?: string }
   /** Always present, empty or not. Per-set problems appear here WITH a 200. */
   errors: Array<{ type: 'access' | 'usage'; message: string }>
+}
+
+// ── Geocoding ────────────────────────────────────────────────────────────────
+// POST /geocode, spec 1.5.0. One best guess per address, or null.
+
+export interface GeocodeResult {
+  lat: number
+  lng: number
+  /** address, interpolated, street or locality: how much of the address was found. */
+  precision: 'address' | 'interpolated' | 'street' | 'locality'
+  /** 0 to 1. Ranks answers; not a probability. */
+  confidence: number
+  /** A same-named street elsewhere scored about as well. */
+  ambiguous: boolean
+  /** What was used, spelt as the data spells it. */
+  matched: { housenumber?: string; street?: string; locality?: string; region?: string; country?: string }
+  /** Parts of the address that matched nothing. */
+  unmatched: string[]
+  sets?: Record<string, Array<{ name: string; properties?: unknown }>>
+  base?: Record<string, LayerHit | null>
+  geometry?: string | { type: string; coordinates: number[][] } | null
+}
+
+export interface GeocodeResponse {
+  result: GeocodeResult | null
+  errors: Array<{ type: string; message: string }>
+}
+
+export interface StoredBoundary {
+  id: string
+  set?: string
+  name: string
+  properties?: unknown
+  pointCount?: number
 }
 
 // ── Routing ──────────────────────────────────────────────────────────────────

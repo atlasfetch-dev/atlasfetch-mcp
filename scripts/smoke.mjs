@@ -48,6 +48,9 @@ await call("get_route", { locations: [{ lat: -33.9242, lng: 18.4210 }, { lat: -3
 await call("geocode_address", { q: "25 Adderley Street, Cape Town" });
 await call("geocode_address", { q: "9999 Long Street, Cape Town" });
 await call("geocode_address", { q: "10 Downing Street, London", country: "GB" });
+// A street corner (spec 1.6.0), and an erf, which has no point and goes to the customer.
+await call("geocode_address", { q: "Cnr Main Rd and Belmont Rd, Rondebosch" });
+await call("geocode_address", { q: "Erf 1234, Khayelitsha" });
 // streetGeometry implies the street layer, so municipal alone still gets a street with a line.
 await call("lookup_location", { lat: -26.2041, lng: 28.0473, base: ["municipal"], streetGeometry: "polyline6" });
 

@@ -212,13 +212,21 @@ export interface GeocodeResult {
   lat: number
   lng: number
   /** address, interpolated, street or locality: how much of the address was found. */
-  precision: 'address' | 'interpolated' | 'street' | 'locality'
+  precision: 'address' | 'interpolated' | 'intersection' | 'street' | 'locality'
   /** 0 to 1. Ranks answers; not a probability. */
   confidence: number
   /** A same-named street elsewhere scored about as well. */
   ambiguous: boolean
   /** What was used, spelt as the data spells it. */
-  matched: { housenumber?: string; street?: string; locality?: string; region?: string; country?: string }
+  matched: {
+    housenumber?: string
+    street?: string
+    /** A corner's second street; only with precision intersection. */
+    crossStreet?: string
+    locality?: string
+    region?: string
+    country?: string
+  }
   /** Parts of the address that matched nothing. */
   unmatched: string[]
   sets?: Record<string, Array<{ name: string; properties?: unknown }>>

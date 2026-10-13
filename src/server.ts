@@ -110,7 +110,8 @@ function summariseRoute(result: RouteResponse): string {
 /**
  * The dispatch table from the API's docs, applied: what to DO with a geocode.
  * Ambiguity is checked first, because an ambiguous house is still the wrong
- * house half the time, however precise it claims to be.
+ * house half the time, however precise it claims to be. A corner ranks with an
+ * interpolated house: a known point a driver can find, not a guess along a street.
  */
 function dispatchAdvice(result: GeocodeResult): string {
   if (result.ambiguous || result.precision === 'locality') {
@@ -120,8 +121,9 @@ function dispatchAdvice(result: GeocodeResult): string {
     return 'right street, not the house: ask the recipient for a pin or a landmark'
   }
   if (result.confidence < 0.5) {
-    return 'house found, but with low confidence: check with the customer'
+    return 'found, but with low confidence: check with the customer'
   }
+  if (result.precision === 'intersection') return 'dispatch to the corner'
   return 'dispatch'
 }
 
@@ -130,7 +132,9 @@ function summariseGeocode(result: GeocodeResult | null): string {
   if (!result) return 'Nothing trustworthy found for that address. The lookup was still billed.'
   const m = result.matched
   const where = [
-    [m.housenumber, m.street].filter(Boolean).join(' '),
+    m.crossStreet
+      ? `${m.street} & ${m.crossStreet}`
+      : [m.housenumber, m.street].filter(Boolean).join(' '),
     m.locality,
     m.region ?? m.country,
   ].filter(Boolean).join(', ')
@@ -281,19 +285,27 @@ export function createServer(): McpServer {
         'never both. If the address is already split, send it split: it matches better.',
         '',
         'READ precision BEFORE using the point. "address" means the house was found;',
-        '"interpolated" means it was estimated between the numbers either side; "street" means the',
-        'right street but NOT the house; "locality" means only the suburb or town. NEVER present',
+        '"interpolated" means it was estimated between the numbers either side; "intersection"',
+        'means a street corner ("Cnr Main Rd and Belmont Rd", "Bree & Strand Streets"), at the',
+        'point where the two meet, with the second street in matched.crossStreet; "street" means',
+        'the right street but NOT the house; "locality" means only the suburb or town. NEVER present',
         'a street- or locality-level point as a door: a driver sent there will be at the wrong',
         'house. In South Africa most answers are street-level, because OpenStreetMap has house',
         'numbers on about 13% of street names — that is the data being honest, not a failure.',
         '',
         'What to do with an answer — the result line says which applies:',
-        '- address or interpolated, not ambiguous, confidence 0.5 or more: dispatch.',
+        '- address, interpolated or intersection, not ambiguous, confidence 0.5 or more: dispatch.',
         '- street: ask the recipient for a pin or a landmark.',
         '- ambiguous, or locality: ask the customer before dispatching.',
         'confidence ranks answers; it is NOT a probability. ambiguous means a same-named street',
-        'elsewhere scored about as well. result null means nothing trustworthy was found, and',
-        'that still costs the lookup.',
+        'elsewhere scored about as well, or the street was a near-miss spelling with no house',
+        'number to confirm it. result null means nothing trustworthy was found, and that still',
+        'costs the lookup.',
+        '',
+        'Some addresses name something that cannot be placed: an erf, stand, plot or farm portion',
+        '(land parcels — there is no cadastre), a township stand, a PO box or private bag. Those',
+        'parts come back in unmatched and the answer is the place named, at locality: ask the',
+        'customer for a street address.',
         '',
         'country is a hard filter; region (ZA-WC, or "Western Cape") only ranks streets inside it',
         'first, so a wrong province does not lose the address. An uncovered country is refused,',

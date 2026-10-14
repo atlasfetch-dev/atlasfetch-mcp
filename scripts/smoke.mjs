@@ -1,10 +1,25 @@
 // Smoke test: drives the built server over stdio with a real MCP client and
-// calls the live API. Uses the shared demo key unless ATLASFETCH_API_KEY is set,
-// so it spends a few lookups from a pooled quota. Run: node scripts/smoke.mjs
+// calls the live API. Run: node scripts/smoke.mjs
+//
+// Set ATLASFETCH_API_KEY to test with a real account's key; without it the
+// server falls back to the shared demo key, whose 2 requests a second and
+// pooled quota belong to the website's visitors, not to tests.
+//
+// The SDK starts the server with a minimal environment (PATH and a few system
+// variables), NOT this process's. So the key has to be forwarded explicitly:
+// without that, setting ATLASFETCH_API_KEY here silently tested the demo key.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-const transport = new StdioClientTransport({ command: "node", args: ["dist/stdio.js"] });
+const forwarded = Object.fromEntries(
+  ["ATLASFETCH_API_KEY", "ATLASFETCH_API_URL"].filter(name => process.env[name]).map(name => [name, process.env[name]]),
+);
+console.log(process.env.ATLASFETCH_API_KEY ? "key: ATLASFETCH_API_KEY (set)" : "key: none set; the server uses the demo key");
+const transport = new StdioClientTransport({
+  command: "node",
+  args: ["dist/stdio.js"],
+  env: { ...getDefaultEnvironment(), ...forwarded },
+});
 const client = new Client({ name: "smoke", version: "0.0.0" });
 await client.connect(transport);
 
@@ -40,7 +55,7 @@ await call("lookup_location", { lat: -33.9221, lng: 18.4231, base: ["municipal",
 // London: a second street case, in another country.
 await call("lookup_location", { lat: 51.5072, lng: -0.1276, base: ["country", "street"] });
 
-// Directions: a short car route, and the plan refusal a demo key should get.
+// Directions: a short car route, and a truck: routed on Pro, refused (403, unbilled) below it.
 await call("get_route", { locations: [{ lat: -33.9242, lng: 18.4210 }, { lat: -33.9068, lng: 18.4201 }] });
 await call("get_route", { locations: [{ lat: -33.9242, lng: 18.4210 }, { lat: -33.9068, lng: 18.4201 }], mode: "truck" });
 
@@ -55,8 +70,8 @@ await call("geocode_address", { q: "Erf 1234, Khayelitsha" });
 await call("lookup_location", { lat: -26.2041, lng: 28.0473, base: ["municipal"], streetGeometry: "polyline6" });
 
 await call("list_boundary_sets", {});
-// update_boundary on a name that is not there: refused before anything is changed.
-await call("update_boundary", { set: "custom1", name: "smoke-no-such-zone", geometry: { type: "Polygon", coordinates: [[[18.4, -33.93], [18.4, -33.9], [18.44, -33.9], [18.4, -33.93]]] } });
+// update_boundary in a set that does not exist on any account: refused, nothing changed.
+await call("update_boundary", { set: "smoke-no-such-set", name: "smoke-no-such-zone", geometry: { type: "Polygon", coordinates: [[[18.4, -33.93], [18.4, -33.9], [18.44, -33.9], [18.4, -33.93]]] } });
 // Wrong shape on purpose: a Feature instead of a geometry
 await call("add_boundary", { set: "demo", name: "x", geometry: { type: "Feature", properties: {}, geometry: {} } });
 

@@ -4,7 +4,7 @@
 //
 // Run: node scripts/registry-smoke.mjs [version]   (defaults to package.json)
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,6 +17,12 @@ const transport = new StdioClientTransport({
   args: ["-y", `atlasfetch-mcp@${version}`],
   cwd,
   stderr: "pipe",
+  // Forward a real key when one is set, as scripts/smoke.mjs does; the SDK
+  // would otherwise start the server without it and test the demo key.
+  env: {
+    ...getDefaultEnvironment(),
+    ...(process.env.ATLASFETCH_API_KEY ? { ATLASFETCH_API_KEY: process.env.ATLASFETCH_API_KEY } : {}),
+  },
 });
 const client = new Client({ name: "registry-smoke", version: "0.0.0" });
 

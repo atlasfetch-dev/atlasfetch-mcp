@@ -127,7 +127,7 @@ function dispatchAdvice(result: GeocodeResult): string {
   // A site is a place with a gate or an entrance, not a door: the unit or shop
   // the customer wrote is what gets the driver the last fifty metres, and the
   // API does not return it.
-  if (result.precision === 'site') return 'dispatch to the site; give the driver the unit or shop from the address'
+  if (result.precision === 'site') return 'dispatch to the site; pass on any unit or shop number from the address'
   return 'dispatch'
 }
 

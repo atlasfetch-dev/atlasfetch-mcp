@@ -18,3 +18,8 @@ build/
 CLAUDE.md
 CLAUDE.local.md
 CROSSTALK.md
+
+# Claude Code wiring for testing this server against production with the
+# test account's key: .mcp.json and the launcher it calls. Local only.
+.mcp.json
+.local/

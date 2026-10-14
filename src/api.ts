@@ -212,7 +212,7 @@ export interface GeocodeResult {
   lat: number
   lng: number
   /** address, interpolated, street or locality: how much of the address was found. */
-  precision: 'address' | 'interpolated' | 'intersection' | 'street' | 'locality'
+  precision: 'address' | 'interpolated' | 'intersection' | 'site' | 'street' | 'locality'
   /** 0 to 1. Ranks answers; not a probability. */
   confidence: number
   /** A same-named street elsewhere scored about as well. */
@@ -223,6 +223,8 @@ export interface GeocodeResult {
     street?: string
     /** A corner's second street; only with precision intersection. */
     crossStreet?: string
+    /** A named site (mall, office park, complex, hospital…) as OpenStreetMap names it. */
+    site?: string
     locality?: string
     region?: string
     country?: string

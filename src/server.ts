@@ -124,6 +124,10 @@ function dispatchAdvice(result: GeocodeResult): string {
     return 'found, but with low confidence: check with the customer'
   }
   if (result.precision === 'intersection') return 'dispatch to the corner'
+  // A site is a place with a gate or an entrance, not a door: the unit or shop
+  // the customer wrote is what gets the driver the last fifty metres, and the
+  // API does not return it.
+  if (result.precision === 'site') return 'dispatch to the site; give the driver the unit or shop from the address'
   return 'dispatch'
 }
 
@@ -132,6 +136,7 @@ function summariseGeocode(result: GeocodeResult | null): string {
   if (!result) return 'Nothing trustworthy found for that address. The lookup was still billed.'
   const m = result.matched
   const where = [
+    m.site,
     m.crossStreet
       ? `${m.street} & ${m.crossStreet}`
       : [m.housenumber, m.street].filter(Boolean).join(' '),
@@ -287,14 +292,18 @@ export function createServer(): McpServer {
         'READ precision BEFORE using the point. "address" means the house was found;',
         '"interpolated" means it was estimated between the numbers either side; "intersection"',
         'means a street corner ("Cnr Main Rd and Belmont Rd", "Bree & Strand Streets"), at the',
-        'point where the two meet, with the second street in matched.crossStreet; "street" means',
-        'the right street but NOT the house; "locality" means only the suburb or town. NEVER present',
+        'point where the two meet, with the second street in matched.crossStreet; "site" means a',
+        'named site — a shopping centre, office park, complex or estate, hospital, school, airport',
+        'or hotel — at a point inside it, named in matched.site; "street" means the right street',
+        'but NOT the house; "locality" means only the suburb or town. NEVER present',
         'a street- or locality-level point as a door: a driver sent there will be at the wrong',
         'house. In South Africa most answers are street-level, because OpenStreetMap has house',
         'numbers on about 13% of street names — that is the data being honest, not a failure.',
         '',
         'What to do with an answer — the result line says which applies:',
-        '- address, interpolated or intersection, not ambiguous, confidence 0.5 or more: dispatch.',
+        '- address, interpolated, intersection or site, not ambiguous, confidence 0.5 or more:',
+        '  dispatch. For a site, pass on the unit or shop number from the original address',
+        '  ("Shop 12") — the answer does not include it, and the driver needs it.',
         '- street: ask the recipient for a pin or a landmark.',
         '- ambiguous, or locality: ask the customer before dispatching.',
         'confidence ranks answers; it is NOT a probability. ambiguous means a same-named street',

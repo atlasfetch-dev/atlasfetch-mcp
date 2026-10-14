@@ -152,6 +152,18 @@ function summariseGeocode(result: GeocodeResult | null): string {
   return `${flags.join(' · ')} · ${where} — ${dispatchAdvice(result)}`
 }
 
+/**
+ * "Set 'zones' is not granted to key 'deployment_tests'" names the key the
+ * server is using. Found in the 1.0 checks: with several keys on an account, the
+ * set had been granted to a different one. Say what to do, not only what failed.
+ */
+function grantHint(message: string): string {
+  const m = message.match(/Set '([^']+)' is not granted to key '([^']+)'/)
+  return m
+    ? ` → at https://atlasfetch.xyz/dashboard, grant set "${m[1]}" to the key labelled "${m[2]}"; that is the key this server uses.`
+    : ''
+}
+
 export function createServer(): McpServer {
   const server = new McpServer(
     { name: 'atlasfetch', version: VERSION },
@@ -266,7 +278,7 @@ export function createServer(): McpServer {
 
         const skipped = result.errors.length > 0
           ? `\n\nPartial problems (the lookup still succeeded):\n${
-              result.errors.map(e => `- [${e.type}] ${e.message}`).join('\n')}`
+              result.errors.map(e => `- [${e.type}] ${e.message}${grantHint(e.message)}`).join('\n')}`
           : ''
 
         return ok(`${summarise(result)}\n\n${json(result)}${skipped}`)
@@ -443,8 +455,10 @@ export function createServer(): McpServer {
       try {
         const set = await request<BoundarySet>('/boundaries/sets', { method: 'POST', body: { name } })
         return ok(
-          `Created the set "${set.name}". It is not queryable yet: switch it on and grant it to an ` +
-            'API key at https://atlasfetch.xyz/dashboard — that step needs a signed-in browser.' +
+          `Created the set "${set.name}". It is not queryable yet: at https://atlasfetch.xyz/dashboard, ` +
+            'switch it on and grant it to THE KEY THIS SERVER USES (the one set as ATLASFETCH_API_KEY) — ' +
+            'that step needs a signed-in browser. If the account has several keys, granting a different ' +
+            'one leaves the set unmatched; a lookup that skips it names the key it needed.' +
             `\n\n${json(set)}`,
         )
       } catch (error) {

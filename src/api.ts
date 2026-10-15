@@ -22,13 +22,19 @@ export function baseUrl(): string {
   return (process.env.ATLASFETCH_API_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
 }
 
-/** A failure the caller should be told about verbatim, not retried blindly. */
+/**
+ * A failure the caller should be told about verbatim, not retried blindly.
+ *
+ * Whether a retry can help is said in the MESSAGE, in words, because that is
+ * all an MCP client passes to the model: a tool result has no retry flag. Every
+ * case in request() says either what to change or when trying again is worth
+ * it. (Until 0.4.1 this class also carried a `retryable` boolean that nothing
+ * ever read; it was removed so nobody trusts it.)
+ */
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    /** Whether retrying the identical request could plausibly succeed later. */
-    readonly retryable: boolean = false,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -148,8 +154,10 @@ export async function request<T>(
       // setup step the user can fix in a minute, and nothing was billed.
       if (code === 'avoid_set_unavailable') {
         throw new ApiError(
-          `${detail} Nothing was billed. At https://atlasfetch.xyz/dashboard, switch the set on and ` +
-            'grant it to the key this server uses, or leave it out of avoidSets.',
+          /does not exist/.test(detail)
+            ? `${detail} Nothing was billed. Check the name with list_boundary_sets, or leave it out of avoidSets.`
+            : `${detail} Nothing was billed. At https://atlasfetch.xyz/dashboard, switch the set on and ` +
+                'grant it to the key this server uses, or leave it out of avoidSets.',
           403,
         )
       }
@@ -169,9 +177,9 @@ export async function request<T>(
     case 429: {
       const retryAfter = response.headers.get('retry-after')
       throw new ApiError(
-        `Rate limited${retryAfter ? `; retry after ${retryAfter}s` : ''}. The limit is per key, per second.`,
+        `Rate limited${retryAfter ? `; retry after ${retryAfter}s` : ''}. The limit is per key, per second. ` +
+          'Nothing was billed.',
         429,
-        true,
       )
     }
     case 503:
@@ -179,10 +187,15 @@ export async function request<T>(
         `The routing engine is not answering right now (${detail}). Nothing was billed. ` +
           'Lookups are unaffected; try the route again in a few minutes.',
         503,
-        true,
       )
     default:
-      throw new ApiError(`AtlasFetch returned ${response.status}: ${detail}`, response.status, response.status >= 500)
+      throw new ApiError(
+        response.status >= 500
+          ? `AtlasFetch had a problem on its side (${response.status}: ${detail}). Trying once more ` +
+              'in a moment may work; if it keeps failing, it is not something the request can fix.'
+          : `AtlasFetch returned ${response.status}: ${detail}`,
+        response.status,
+      )
   }
 }
 

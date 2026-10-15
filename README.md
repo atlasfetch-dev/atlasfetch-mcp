@@ -122,6 +122,35 @@ Create your own at [atlasfetch.xyz/dashboard](https://atlasfetch.xyz/dashboard) 
 
 A lookup or a geocoded address is one lookup; a route is 10 on the standard plans. A lookup is one, however many layers, sets or grid codes it touches. Metering happens before matching, so a lookup that matches nothing still counts. Requests rejected as invalid or rate-limited are not billed.
 
+## Conventions
+
+A few rules hold across all seven tools, so an input means the same thing wherever it appears.
+
+- **`set` names one set, `sets` names several.** `add_boundary` and `update_boundary` act on one set (`set`). `lookup_location` and `geocode_address` match against any number of sets (`sets`).
+- **`get_route` flattens two API objects.** The API takes `avoid: { sets: [...] }` and `exposure: { sets: [...] }`. The tool takes `avoidSets` and `exposureSets`, because a one-key wrapper object is a step a model gets wrong.
+- **`…Geometry` is always a line you ask to get back, and always off by default.** `routeGeometry` on `get_route`, and `streetGeometry` on `lookup_location` and `geocode_address`. A plain `geometry` input is a polygon you send, on `add_boundary` and `update_boundary`. (`get_route` still accepts `geometry` as an old name for `routeGeometry`; it goes in 1.0.)
+- **Where a default differs from the API's, it is on purpose:**
+
+  | Tool | Input | This server | API | Why |
+  | --- | --- | --- | --- | --- |
+  | `get_route` | `steps` | `true` | `false` | Turn-by-turn is what someone asks an assistant for |
+  | `lookup_location` | `streetGeometry` | adds `street` to `base` | `400` without `street` | Asking for a street's line means asking for the street |
+
+- **The first line of every answer is for a person, and is not a contract.** It summarises the answer and says what to do with it (`— dispatch`, `— ask the customer`), and its wording will keep improving. **The JSON below it is the API's answer, unchanged, and that is what to parse.**
+
+## Stability
+
+Before 1.0, minor versions (0.3 → 0.4) may rename or remove an input, as 0.4.0 did, though always with a deprecated alias first.
+
+**From 1.0:**
+
+- **Frozen:** tool names, input names, input types and defaults.
+- **May change in a minor release:** new tools, new optional inputs, new values an output can take (as `intersection` and `site` were added to `precision`), and the wording of descriptions and of the first line of each answer.
+- **Breaking changes go through deprecation.** The old form keeps working for at least one minor release, its description says what replaces it, and it is removed only in the next major version.
+- **The JSON in each answer follows the AtlasFetch API**, which versions its own contract in its [OpenAPI spec](https://api.atlasfetch.xyz/openapi.json).
+
+Every release is described in [CHANGELOG.md](CHANGELOG.md).
+
 ## Development
 
 ```bash

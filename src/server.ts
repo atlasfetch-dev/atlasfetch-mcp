@@ -679,8 +679,13 @@ export function createServer(): McpServer {
         'alone and reports how far it ran inside each zone. A zone containing one of the locations',
         'cannot be avoided for that route: it is skipped and reported in avoid.skipped.',
         '',
+        'TRUCKS (Pro only): a truck over 9 t, or with no weightTonnes, is capped at 80 km/h, as South',
+        'African law caps goods vehicles; a lighter truck keeps car speeds. The vehicle’s height,',
+        'width, length, weight, axle load and hazmat are checked against road limits where',
+        'OpenStreetMap records them, which is not everywhere — a good start, not a legal clearance.',
+        '',
         'Limits by plan: 2 locations and 1 alternative on the free plans, up to 25 and 2 on Pro;',
-        'truck is Pro only; alternatives need exactly 2 locations. Over a cap the answer is 403,',
+        'alternatives need exactly 2 locations. Over a cap the answer is 403,',
         'and nothing is billed. A location with no road near it, or two places with no road',
         'between them, is 422 — and that one IS billed, because the route was attempted.',
         '',
@@ -701,7 +706,7 @@ export function createServer(): McpServer {
         mode: z
           .enum(['car', 'bike', 'foot', 'truck'])
           .optional()
-          .describe('Travel mode. Defaults to car. "truck" is Pro only and obeys vehicle limits.'),
+          .describe('Travel mode. Defaults to car. "truck" is Pro only; see TRUCKS above.'),
         steps: z
           .boolean()
           .optional()
@@ -754,7 +759,10 @@ export function createServer(): McpServer {
             hazmat: z.boolean().optional(),
           })
           .optional()
-          .describe('Truck dimensions and load. Only with mode "truck"; rejected otherwise.'),
+          .describe(
+            'Truck dimensions and load. Only with mode "truck"; rejected otherwise. Give weightTonnes: ' +
+              'without it the truck is treated as heavy (over 9 t) and capped at 80 km/h.',
+          ),
       },
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "atlasfetch",
   "display_name": "AtlasFetch",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "description": "Coordinates to places and streets, ZA addresses to points, and routes around your own geofences.",
   "long_description": "AtlasFetch answers **which place is this coordinate in?** A point becomes the country, region and municipality that contain it, with ISO 3166-1 and 3166-2 codes, plus matches from boundary sets you upload yourself: delivery zones, service areas, sales territories. Ask for the **street** layer and it also answers with the nearest street and, where one is mapped, the house number — worldwide. It also **routes** between coordinates — car, bike, foot or truck, with turn-by-turn steps — and can route *around* your own zones, or measure how far a route runs inside them. A route costs 10 lookups on the standard plans, and its durations are free-flow, with no live traffic. And it **geocodes addresses** to coordinates in South Africa, saying how much of each address it found — the house, the street or only the suburb — so you know when to ask for a pin.\n\n**No sign-up needed to try it.** Leave the API key empty and it uses a shared public demo key, capped at 1,000 lookups a month across everyone using it. Get your own limits with a free sign-up at https://atlasfetch.xyz.\n\n**Not for** forward geocoding or place search (an address to a coordinate), routing, distances, or downloading boundary geometry. House numbers are rare outside well-mapped areas.\n\nReference boundaries derive from OpenStreetMap under the ODbL. Coordinates you look up are not stored.",
   "author": {

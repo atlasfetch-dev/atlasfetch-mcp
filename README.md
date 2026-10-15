@@ -38,7 +38,7 @@ Three things worth knowing before you wire it up:
 
 - **A route costs 10 lookups**, not one. Everything it returns is included in that, but it is ten times a lookup.
 - **Durations are free-flow** — the network at its own speed limits, with no live or historical traffic. They are not ETAs. For those, use a traffic-aware service.
-- **The route line is off by default** (`geometry: "none"`). An encoded polyline is thousands of characters an assistant cannot read; ask for `polyline6` or `geojson` only when something will draw it.
+- **The route line is off by default** (`routeGeometry: "none"`). An encoded polyline is thousands of characters an assistant cannot read; ask for `polyline6` or `geojson` only when something will draw it.
 
 **Your own zones, in a route.** `avoidSets` names boundary sets to route *around*; `exposureSets` names sets to *measure* against, leaving the route alone and reporting how many metres of it ran inside each zone. A zone containing one of your locations cannot be avoided for that route — it is skipped, and the answer says so.
 

@@ -667,7 +667,7 @@ export function createServer(): McpServer {
         'historical traffic. Never present one as an arrival time in traffic — for that, say a',
         'traffic-aware service (Google, Mapbox) is needed.',
         '',
-        'The route line is NOT returned unless geometry is set, because an encoded polyline is',
+        'The route line is NOT returned unless routeGeometry is set, because an encoded polyline is',
         'thousands of characters that no one reads. Ask for it only when something will draw it.',
         '',
         'Locations are SNAPPED to the nearest routable road, and locations[] in the response says',
@@ -724,13 +724,21 @@ export function createServer(): McpServer {
             'Names of boundary sets to MEASURE against: the route is unchanged, and the answer says how ' +
               'many metres of it ran inside each zone.',
           ),
-        geometry: z
+        routeGeometry: z
           .enum(['none', 'polyline6', 'geojson'])
           .optional()
           .describe(
             'The route line. Defaults to none. Ask for polyline6 or geojson only when something will ' +
               'draw it: it is long, and an assistant cannot read it usefully.',
           ),
+        // Renamed in 0.4.0 (1.0 checklist C.1): in add_boundary and update_boundary
+        // `geometry` is a shape you SEND; here it was the format of a line you GET
+        // BACK. A model that learned one misread the other. Kept as an alias so
+        // 0.x callers do not silently lose their line; removed at 1.0.
+        geometry: z
+          .enum(['none', 'polyline6', 'geojson'])
+          .optional()
+          .describe('DEPRECATED: use routeGeometry, which takes the same values. Removed in 1.0.'),
         language: z
           .string()
           .max(16)
@@ -750,7 +758,7 @@ export function createServer(): McpServer {
       },
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    async ({ locations, mode, steps, alternatives, avoidSets, exposureSets, geometry, language, vehicle }) => {
+    async ({ locations, mode, steps, alternatives, avoidSets, exposureSets, routeGeometry, geometry, language, vehicle }) => {
       try {
         const result = await request<RouteResponse>('/route', {
           method: 'POST',
@@ -761,7 +769,8 @@ export function createServer(): McpServer {
             // are on unless turned off — the API itself defaults them off.
             steps: steps ?? true,
             alternatives,
-            geometry: geometry ?? 'none',
+            // The new name wins if both are sent.
+            geometry: routeGeometry ?? geometry ?? 'none',
             language,
             vehicle,
             avoid: avoidSets?.length ? { sets: avoidSets } : undefined,

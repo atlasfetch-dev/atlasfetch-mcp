@@ -14,6 +14,13 @@ import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotoc
 const forwarded = Object.fromEntries(
   ["ATLASFETCH_API_KEY", "ATLASFETCH_API_URL"].filter(name => process.env[name]).map(name => [name, process.env[name]]),
 );
+// --require-key: stop rather than fall back. A test meant for a real account
+// that quietly runs on the demo key passes for the wrong reasons (a Pro-only
+// case reads as a correct refusal) and spends the demo's shared allowance.
+if (process.argv.includes("--require-key") && !process.env.ATLASFETCH_API_KEY) {
+  console.error("smoke: --require-key, but ATLASFETCH_API_KEY is empty. Not running on the demo key.");
+  process.exit(2);
+}
 console.log(process.env.ATLASFETCH_API_KEY ? "key: ATLASFETCH_API_KEY (set)" : "key: none set; the server uses the demo key");
 const transport = new StdioClientTransport({
   command: "node",

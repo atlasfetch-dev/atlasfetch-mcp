@@ -79,12 +79,13 @@ export const DEMO_KEY_NOTICE =
   'every anonymous user, so it is unsuitable for production. Create your own at ' +
   'https://atlasfetch.xyz/dashboard and set ATLASFETCH_API_KEY.'
 
-async function readError(response: Response): Promise<string> {
+/** The API's sentence, and its machine-readable `code` where it sends one (routes, geocoding). */
+async function readError(response: Response): Promise<{ detail: string; code?: string }> {
   try {
-    const body = (await response.json()) as { error?: string }
-    return body.error ?? response.statusText
+    const body = (await response.json()) as { error?: string; code?: string }
+    return { detail: body.error ?? response.statusText, code: body.code }
   } catch {
-    return response.statusText
+    return { detail: response.statusText }
   }
 }
 
@@ -114,7 +115,7 @@ export async function request<T>(
 
   if (response.ok) return (await response.json()) as T
 
-  const detail = await readError(response)
+  const { detail, code } = await readError(response)
   switch (response.status) {
     case 400:
       throw new ApiError(`The request was rejected: ${detail}`, 400)
@@ -135,6 +136,15 @@ export async function request<T>(
         402,
       )
     case 403:
+      // Not every 403 is about the plan. An avoid set the key cannot read is a
+      // setup step the user can fix in a minute, and nothing was billed.
+      if (code === 'avoid_set_unavailable') {
+        throw new ApiError(
+          `${detail} Nothing was billed. At https://atlasfetch.xyz/dashboard, switch the set on and ` +
+            'grant it to the key this server uses, or leave it out of avoidSets.',
+          403,
+        )
+      }
       throw new ApiError(`The current plan does not allow this, or a cap was exceeded: ${detail}`, 403)
     case 404:
       throw new ApiError(detail || 'Not found.', 404)

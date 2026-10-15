@@ -102,8 +102,12 @@ function summariseRoute(result: RouteResponse): string {
     parts.push(`a location moved ${distance(Math.max(...far.map(l => l.snapDistanceMeters)))} to reach a road`)
   }
   for (const zone of route.exposure ?? []) parts.push(`${distance(zone.metersInside)} inside ${zone.zone}`)
-  const skipped = result.avoid?.skipped?.length ?? 0
-  if (skipped > 0) parts.push(`${skipped} avoid zone${skipped === 1 ? '' : 's'} skipped`)
+  const avoided = result.avoid?.applied ?? []
+  if (avoided.length > 0) parts.push(`avoided ${avoided.map(z => z.zone).join(', ')}`)
+  const skipped = result.avoid?.skipped ?? []
+  if (skipped.length > 0) {
+    parts.push(`could not avoid ${skipped.map(z => z.zone).join(', ')} (it holds a location)`)
+  }
   return `${parts.join(' · ')} — free-flow, no traffic`
 }
 
@@ -149,7 +153,17 @@ function summariseGeocode(result: GeocodeResult | null): string {
     ...(result.ambiguous ? ['ambiguous'] : []),
     ...(result.unmatched.length > 0 ? [`unmatched: ${result.unmatched.join(', ')}`] : []),
   ]
-  return `${flags.join(' · ')} · ${where} — ${dispatchAdvice(result)}`
+  const zones = Object.entries(result.sets ?? {})
+    .filter(([, matches]) => matches.length > 0)
+    .map(([set, matches]) => `${set} -> ${matches.map(z => z.name).join(', ')}`)
+  const layers = Object.values(result.base ?? {})
+    .filter((hit): hit is { code: string | null; name: string } => Boolean(hit))
+    .map(hit => hit.name)
+  const extra = [
+    ...(zones.length > 0 ? [`zones: ${zones.join('; ')}`] : []),
+    ...(layers.length > 0 ? [`in ${layers.join(', ')}`] : []),
+  ]
+  return `${[...flags, where, ...extra].join(' · ')} — ${dispatchAdvice(result)}`
 }
 
 /**

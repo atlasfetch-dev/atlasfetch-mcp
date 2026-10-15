@@ -4,7 +4,7 @@ Every release of `atlasfetch-mcp`, newest first. Dates are when the version reac
 
 Before 1.0, a minor version (0.3 → 0.4) may rename an input, always with a deprecated alias first. See [Stability](README.md#stability) for what 1.0 will promise.
 
-## 0.4.1
+## 0.4.1 — 2026-10-15
 
 ### Changed
 - **`get_route` explains how trucks route.** A truck over 9 t, or with no `weightTonnes`, is capped at 80 km/h, as South African law caps goods vehicles; a lighter truck keeps car speeds. Height, width, length, weight, axle load and hazmat are checked where OpenStreetMap records road limits.

@@ -95,8 +95,11 @@ function summariseRoute(result: RouteResponse): string {
   if (route.legs.length > 1) parts.push(`${route.legs.length} legs`)
   const stepCount = route.legs.reduce((total, leg) => total + (leg.steps?.length ?? 0), 0)
   if (stepCount > 0) parts.push(`${stepCount} steps`)
-  const alternatives = result.alternatives?.length ?? 0
-  if (alternatives > 0) parts.push(`${alternatives} alternative${alternatives === 1 ? '' : 's'}`)
+  // Alternatives exist to be compared, so the comparison goes on the line.
+  const alternatives = result.alternatives ?? []
+  if (alternatives.length > 0) {
+    parts.push(`alternatives: ${alternatives.map(a => `${distance(a.distanceMeters)}, ${clock(a.durationSeconds)}`).join('; ')}`)
+  }
   const far = result.locations.filter(l => l.snapDistanceMeters >= 50)
   if (far.length > 0) {
     parts.push(`a location moved ${distance(Math.max(...far.map(l => l.snapDistanceMeters)))} to reach a road`)

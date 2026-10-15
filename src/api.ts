@@ -79,11 +79,19 @@ export const DEMO_KEY_NOTICE =
   'every anonymous user, so it is unsuitable for production. Create your own at ' +
   'https://atlasfetch.xyz/dashboard and set ATLASFETCH_API_KEY.'
 
-/** The API's sentence, and its machine-readable `code` where it sends one (routes, geocoding). */
+/**
+ * The API's sentence, its machine-readable `code` where it sends one (routes,
+ * geocoding), and its per-field `details`. "Validation error" alone tells a
+ * model nothing; "vehicle.heightMeters: Too big: expected number to be <=10"
+ * tells it what to change.
+ */
 async function readError(response: Response): Promise<{ detail: string; code?: string }> {
   try {
-    const body = (await response.json()) as { error?: string; code?: string }
-    return { detail: body.error ?? response.statusText, code: body.code }
+    const body = (await response.json()) as { error?: string; code?: string; details?: Record<string, string[] | string> }
+    const fields = Object.entries(body.details ?? {})
+      .map(([field, problems]) => `${field}: ${[problems].flat().join(', ')}`)
+    const detail = body.error ?? response.statusText
+    return { detail: fields.length > 0 ? `${detail} (${fields.join('; ')})` : detail, code: body.code }
   } catch {
     return { detail: response.statusText }
   }

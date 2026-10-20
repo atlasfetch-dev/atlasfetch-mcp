@@ -309,13 +309,27 @@ try {
   fail(error.message);
 }
 
+// Steps whose failure is reported but does not stop the release. Smithery is a
+// directory listing, not a channel anyone installs from by default (npm and the
+// MCP Registry are). On 2026-10-20 it began refusing every update to an
+// existing server ("Updating servers has been removed. Contact
+// support@smithery.ai."), which stopped the 0.4.2 release after npm had
+// already published. A listing that lags must not hold a release hostage.
+const SOFT_STEPS = new Set(["smithery"]);
+const softFailures = [];
+
 for (const name of planned) {
   const started = Date.now();
   console.log(`▶ ${name}`);
   try {
     await steps[name]();
   } catch (error) {
-    fail(`${name} failed: ${error.message}\n  Fix it, then resume with: node scripts/release.mjs --from ${name}`);
+    if (!SOFT_STEPS.has(name)) {
+      fail(`${name} failed: ${error.message}\n  Fix it, then resume with: node scripts/release.mjs --from ${name}`);
+    }
+    softFailures.push(`${name}: ${error.message}`);
+    console.log(`⚠ ${name} failed, and the release carries on: ${error.message}\n`);
+    continue;
   }
   console.log(`✓ ${name} (${Math.round((Date.now() - started) / 1000)}s)\n`);
 }
@@ -324,4 +338,8 @@ if (dryRun) {
   console.log(`Dry run passed. Would run next: ${plan.filter(s => s !== "preflight").join(" → ")}`);
 } else {
   console.log(`Released ${PACKAGE} ${version}.`);
+  if (softFailures.length > 0) {
+    console.log(`\nNot updated (the release is complete without them):`);
+    for (const failure of softFailures) console.log(`  - ${failure}`);
+  }
 }

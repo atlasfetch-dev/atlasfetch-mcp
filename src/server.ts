@@ -73,7 +73,9 @@ function summarise(result: LookupResponse): string {
 
 /** 840 -> "840 m", 3513 -> "3.5 km", 51000 -> "51 km". */
 const distance = (meters: number) =>
-  meters >= 1000 ? `${(meters / 1000).toFixed(meters >= 10000 ? 0 : 1)} km` : `${Math.round(meters)} m`
+  meters >= 10000
+    ? `${Math.round(meters / 1000).toLocaleString('en-GB')} km`
+    : meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`
 
 /** 44 -> "44 s", 306 -> "5 min", 3906 -> "1 h 5 min". */
 function clock(seconds: number): string {
@@ -138,6 +140,22 @@ function dispatchAdvice(result: GeocodeResult): string {
   return 'dispatch'
 }
 
+/** A short name for a geocoding candidate: the site, corner or street, then the town. */
+function placeName(a: GeocodeResult): string {
+  const m = a.matched
+  const what = m.site ?? (m.crossStreet ? `${m.street} & ${m.crossStreet}` : [m.housenumber, m.street].filter(Boolean).join(' '))
+  return [what, m.locality].filter(Boolean).join(', ') || a.precision
+}
+
+/** "2.4 km SE" of `from`: enough to tell same-named candidates apart. */
+function offset(from: GeocodeResult, to: GeocodeResult): string {
+  const rad = Math.PI / 180
+  const dy = (to.lat - from.lat) * 110574
+  const dx = (to.lng - from.lng) * 111320 * Math.cos(((from.lat + to.lat) / 2) * rad)
+  const compass = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((Math.atan2(dx, dy) / rad + 360) % 360) / 45) % 8]
+  return `${distance(Math.hypot(dx, dy))} ${compass} of the first`
+}
+
 /** "address · 0.96 · 25 Adderley Street, Cape Town, ZA-WC — dispatch". */
 function summariseGeocode(result: GeocodeResult | null): string {
   if (!result) return 'Nothing trustworthy found for that address. The lookup was still billed.'
@@ -166,7 +184,15 @@ function summariseGeocode(result: GeocodeResult | null): string {
     ...(zones.length > 0 ? [`zones: ${zones.join('; ')}`] : []),
     ...(layers.length > 0 ? [`in ${layers.join(', ')}`] : []),
   ]
-  return `${[...flags, where, ...extra].join(' · ')} — ${dispatchAdvice(result)}`
+  const advice = dispatchAdvice(result)
+  // Alternatives matter exactly when the advice is to ask: they are what to ask
+  // about. They usually share a name and a town, so each is told apart by how
+  // far, and which way, it lies from the first answer.
+  const others = advice.startsWith('ask the customer') ? (result.alternatives ?? []) : []
+  const offered = others.length > 0
+    ? `\n  or: ${others.map(a => `${placeName(a)} (${offset(result, a)})`).join('; ')}`
+    : ''
+  return `${[...flags, where, ...extra].join(' · ')} — ${advice}${offered}`
 }
 
 /**
@@ -335,6 +361,11 @@ export function createServer(): McpServer {
         '  ("Shop 12") — the answer does not include it, and the driver needs it.',
         '- street: ask the recipient for a pin or a landmark.',
         '- ambiguous, or locality: ask the customer before dispatching.',
+        'When the advice is to ask the customer, ASK — do not pick one. result.alternatives holds up',
+        'to 4 other candidates the answer was chosen from, and the result line lists them with their',
+        'distance and direction from the first, because they often share a street name AND a town',
+        '(five "Long Street, Cape Town"s). Put the first answer and those to the user. Free: still',
+        'one lookup.',
         'confidence ranks answers; it is NOT a probability. ambiguous means a same-named street',
         'elsewhere scored about as well, or the street was a near-miss spelling with no house',
         'number to confirm it. result null means nothing trustworthy was found, and that still',
@@ -426,7 +457,7 @@ export function createServer(): McpServer {
       description:
         'Lists the boundary sets on this account with their boundary counts and the API keys (id ' +
         'and label) each is granted to. A set only matches during a lookup when it is available AND ' +
-        'granted to the key making the call.',
+        'granted to the key making the call. On the shared demo key, grantedKeys is always empty.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -452,10 +483,11 @@ export function createServer(): McpServer {
         'sales territories.',
         '',
         'IMPORTANT, and not a bug: a new set is created unavailable and granted to no key, so it',
-        'matches nothing until both are changed. Granting is addressed by API key id, and the only',
-        'endpoint that lists key ids needs a browser session — which this server does not have. So',
-        'this tool can create the set and add boundaries to it, but CANNOT make it queryable. Tell',
-        'the user to finish that at https://atlasfetch.xyz/dashboard.',
+        'matches nothing until both are changed. Granting is addressed by API key id, and nothing',
+        'this server can call tells it its own key\'s id. So this tool can create the set and add',
+        'boundaries to it, but the FIRST grant has to happen in the dashboard: tell the user to',
+        'switch the set on and grant it to the key this server uses, at',
+        'https://atlasfetch.xyz/dashboard.',
       ].join('\n'),
       inputSchema: {
         name: z
@@ -507,10 +539,10 @@ export function createServer(): McpServer {
         'positions and must be closed (last position equals the first); extra rings are holes.',
         'Self-intersecting shapes are rejected. To store a MultiPolygon, add each part separately.',
         '',
-        'Plan limits cap vertices per polygon (every position counts, including the closing one),',
-        'properties per boundary and boundaries per set; a limit hit is refused with a message naming',
-        'it. WITHOUT YOUR OWN KEY, the shared demo key is on the Public plan: at most 5 positions per',
-        'polygon (a closed quadrilateral), properties only category (zone, area, route, place,',
+        'A polygon may have at most 50 points on EVERY plan, the closing one included; more is',
+        'refused, unbilled, with advice to simplify the shape or split it into several boundaries.',
+        'Plan limits cap properties per boundary and boundaries per set. WITHOUT YOUR OWN KEY, the',
+        'shared demo key is on the Public plan: properties only category (zone, area, route, place,',
         'other), color (green, blue, red, yellow, purple, orange) and priority (low, medium, high),',
         'and one set shared with every demo user, where adding to a full set silently deletes its',
         'oldest boundary. Never upload anything private with the demo key.',
@@ -581,7 +613,7 @@ export function createServer(): McpServer {
         '',
         'Name the boundary by set and name; this finds its id. If a set holds two boundaries with',
         'that name, the answer lists their ids and asks for one. The new shape gets the same',
-        'checks as add_boundary, including the plan’s points-per-boundary cap (refused, unbilled).',
+        'checks as add_boundary, including the 50-point cap (refused, unbilled).',
         'Only boundaries on this account can be changed.',
       ].join('\n'),
       inputSchema: {
@@ -677,7 +709,9 @@ export function createServer(): McpServer {
         'avoidSets and exposureSets name BOUNDARY SETS on the account (list_boundary_sets), not',
         'ad-hoc shapes. avoid routes around every zone in those sets; exposure leaves the route',
         'alone and reports how far it ran inside each zone. A zone containing one of the locations',
-        'cannot be avoided for that route: it is skipped and reported in avoid.skipped.',
+        'cannot be avoided for that route: it is skipped and reported in avoid.skipped. Along very',
+        'many exposure zones (over 1,000, or over 5 s to measure) exposure is skipped: it comes back',
+        'empty with a note in errors, and the route is still answered and billed.',
         '',
         'TRUCKS (Pro only): a truck over 9 t, or with no weightTonnes, is capped at 80 km/h, as South',
         'African law caps goods vehicles; a lighter truck keeps car speeds. The vehicle’s height,',

@@ -3,7 +3,7 @@
   "name": "xyz.atlasfetch/atlasfetch",
   "title": "AtlasFetch",
   "description": "Coordinates to places and streets, ZA addresses to points, and routes around your own geofences.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "websiteUrl": "https://atlasfetch.xyz",
   "repository": {
     "url": "https://github.com/atlasfetch-dev/atlasfetch-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "atlasfetch-mcp",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "transport": {
         "type": "stdio"
       },

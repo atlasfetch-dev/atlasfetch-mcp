@@ -4,6 +4,16 @@ Every release of `atlasfetch-mcp`, newest first. Dates are when the version reac
 
 Before 1.0, a minor version (0.3 → 0.4) may rename an input, always with a deprecated alias first. See [Stability](README.md#stability) for what 1.0 will promise.
 
+## 0.4.2
+
+### Added
+- `geocode_address` lists the API's `alternatives` when the advice is to ask the customer, each with its distance and direction from the first answer.
+
+### Changed
+- 50 points per polygon on every plan (`add_boundary`, `update_boundary`).
+- `create_boundary_set` describes granting accurately: the first grant happens in the dashboard, because nothing the server can call reveals its own key's id.
+- `list_boundary_sets` and `get_route` note the demo key's empty `grantedKeys`, and that exposure can be skipped on very busy routes.
+
 ## 0.4.1 — 2026-10-15
 
 ### Changed

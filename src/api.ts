@@ -265,6 +265,11 @@ export interface GeocodeResult {
   sets?: Record<string, Array<{ name: string; properties?: unknown }>>
   base?: Record<string, LayerHit | null>
   geometry?: string | { type: string; coordinates: number[][] } | null
+  /**
+   * Up to 4 other candidates, best first, each shaped as this answer and never
+   * with alternatives of their own. Always present since spec 1.8.0.
+   */
+  alternatives?: GeocodeResult[]
 }
 
 export interface GeocodeResponse {

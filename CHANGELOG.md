@@ -4,7 +4,14 @@ Every release of `atlasfetch-mcp`, newest first. Dates are when the version reac
 
 Before 1.0, a minor version (0.3 → 0.4) may rename an input, always with a deprecated alias first. See [Stability](README.md#stability) for what 1.0 will promise.
 
-## 0.4.2
+## 0.4.3
+
+### Security
+- **MCP SDK 1.32.1** (from 1.30.0), which fixes five advisories against earlier SDK versions: GHSA-6qxp-vccf-f47h, GHSA-22jm-h49p-29qw, GHSA-6prh-2h8m-c8cw, GHSA-46jr-4wx8-v453 and GHSA-rvq5-wwqv-78pq. They concern the SDK's HTTP transports, OAuth client, bearer authentication and experimental tasks, none of which this server uses: it speaks stdio only. The dependency now requires the fixed version, so a scanner reading the declared range no longer reports them.
+
+No tool, input, output or default changed.
+
+## 0.4.2 — 2026-10-20
 
 ### Added
 - `geocode_address` lists the API's `alternatives` when the advice is to ask the customer, each with its distance and direction from the first answer.

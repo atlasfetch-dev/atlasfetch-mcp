@@ -2,14 +2,25 @@
 // drives it with a real MCP client. Proves the release works for someone who
 // has only the npm registry, not this checkout.
 //
-// Run: node scripts/registry-smoke.mjs [version]   (defaults to package.json)
+// Run: node scripts/registry-smoke.mjs [version] [--require-key]   (version defaults to package.json)
+//
+// Without ATLASFETCH_API_KEY it tests the public demo key: what a user who
+// supplies no key gets. That is what the release's verify step means to test.
+// Any other check of production uses the AtlasIQ key and --require-key, so a
+// failed key read stops the run instead of quietly testing the demo key.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const version = process.argv[2] ?? JSON.parse(readFileSync("package.json", "utf8")).version;
+if (process.argv.includes("--require-key") && !process.env.ATLASFETCH_API_KEY) {
+  console.error("registry-smoke: --require-key, but ATLASFETCH_API_KEY is empty. Not running on the demo key.");
+  process.exit(2);
+}
+console.log(process.env.ATLASFETCH_API_KEY ? "key: ATLASFETCH_API_KEY (set)" : "key: none set; testing the public demo key");
+
+const version = process.argv.slice(2).find(arg => !arg.startsWith("--")) ?? JSON.parse(readFileSync("package.json", "utf8")).version;
 const cwd = mkdtempSync(join(tmpdir(), "atlasfetch-smoke-"));
 
 const transport = new StdioClientTransport({

@@ -144,7 +144,16 @@ function dispatchAdvice(result: GeocodeResult): string {
 function placeName(a: GeocodeResult): string {
   const m = a.matched
   const what = m.site ?? (m.crossStreet ? `${m.street} & ${m.crossStreet}` : [m.housenumber, m.street].filter(Boolean).join(' '))
-  return [what, m.locality].filter(Boolean).join(', ') || a.precision
+  return [what, ...areaNames(m)].filter(Boolean).join(', ') || a.precision
+}
+
+/**
+ * The suburb the point lies in, then the place the caller wrote, once each:
+ * "Observatory, Cape Town", but "Rondebosch", not "Rondebosch, Rondebosch".
+ */
+function areaNames(m: GeocodeResult['matched']): string[] {
+  const same = m.suburb && m.locality && m.suburb.toLowerCase() === m.locality.toLowerCase()
+  return [same ? undefined : m.suburb, m.locality].filter((name): name is string => Boolean(name))
 }
 
 /** "2.4 km SE" of `from`: enough to tell same-named candidates apart. */
@@ -165,7 +174,7 @@ function summariseGeocode(result: GeocodeResult | null): string {
     m.crossStreet
       ? `${m.street} & ${m.crossStreet}`
       : [m.housenumber, m.street].filter(Boolean).join(' '),
-    m.locality,
+    ...areaNames(m),
     m.region ?? m.country,
   ].filter(Boolean).join(', ')
   const flags = [
@@ -186,8 +195,9 @@ function summariseGeocode(result: GeocodeResult | null): string {
   ]
   const advice = dispatchAdvice(result)
   // Alternatives matter exactly when the advice is to ask: they are what to ask
-  // about. They usually share a name and a town, so each is told apart by how
-  // far, and which way, it lies from the first answer.
+  // about. They usually share a name and a town, so each is told apart by its
+  // suburb, and by how far, and which way, it lies from the first answer, for
+  // two in one suburb or none near.
   const others = advice.startsWith('ask the customer') ? (result.alternatives ?? []) : []
   const offered = others.length > 0
     ? `\n  or: ${others.map(a => `${placeName(a)} (${offset(result, a)})`).join('; ')}`
@@ -362,10 +372,12 @@ export function createServer(): McpServer {
         '- street: ask the recipient for a pin or a landmark.',
         '- ambiguous, or locality: ask the customer before dispatching.',
         'When the advice is to ask the customer, ASK — do not pick one. result.alternatives holds up',
-        'to 4 other candidates the answer was chosen from, and the result line lists them with their',
-        'distance and direction from the first, because they often share a street name AND a town',
-        '(five "Long Street, Cape Town"s). Put the first answer and those to the user. Free: still',
-        'one lookup.',
+        'to 4 other candidates the answer was chosen from, and the result line lists them with the',
+        'suburb each lies in and its distance and direction from the first, because they often',
+        'share a street name AND a town (five "Long Street, Cape Town"s: City Centre, Observatory,',
+        'Maitland…). Put the first answer and those to the user, by suburb. Free: still one lookup.',
+        'matched.locality is the place the caller wrote; matched.suburb is the suburb the point',
+        'actually lies in, absent at locality precision and where no suburb is near.',
         'confidence ranks answers; it is NOT a probability. ambiguous means a same-named street',
         'elsewhere scored about as well, or the street was a near-miss spelling with no house',
         'number to confirm it. result null means nothing trustworthy was found, and that still',

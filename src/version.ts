@@ -4,4 +4,4 @@
  * package.json, server.json and manifest.json by scripts/release.mjs, which
  * refuses to release if they disagree.
  */
-export const VERSION = '0.4.3'
+export const VERSION = '0.4.4'

@@ -256,6 +256,13 @@ export interface GeocodeResult {
     crossStreet?: string
     /** A named site (mall, office park, complex, hospital…) as OpenStreetMap names it. */
     site?: string
+    /**
+     * The suburb the point lies in: the nearest suburb within about 3 km, the
+     * one written first if it is in reach. Absent at locality precision and
+     * where no suburb is near. Since API spec 1.9.0.
+     */
+    suburb?: string
+    /** The place the caller wrote, as the data spells it; not where the point lies. */
     locality?: string
     region?: string
     country?: string

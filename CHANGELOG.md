@@ -4,6 +4,13 @@ Every release of `atlasfetch-mcp`, newest first. Dates are when the version reac
 
 Before 1.0, a minor version (0.3 → 0.4) may rename an input, always with a deprecated alias first. See [Stability](README.md#stability) for what 1.0 will promise.
 
+## 0.4.4
+
+### Changed
+- **`geocode_address` names the suburb.** The API now gives each answer and alternative the suburb its point lies in (`matched.suburb`). The result line shows it, so the five "Long Street, Cape Town"s read City Centre, Observatory, Maitland and so on, not five identical names; each alternative keeps its distance and direction from the first, for two in one suburb. The description explains `suburb` (where the point lies) against `locality` (what the caller wrote).
+
+No tool, input or default changed.
+
 ## 0.4.3 — 2026-10-21
 
 ### Security

@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "xyz.atlasfetch/atlasfetch",
   "title": "AtlasFetch",
-  "description": "Coordinates to places and streets, ZA addresses to points, and routes around your own geofences.",
-  "version": "0.4.4",
+  "description": "Coordinates to places and streets, addresses to points, and routes around your own geofences.",
+  "version": "0.4.5",
   "websiteUrl": "https://atlasfetch.xyz",
   "repository": {
     "url": "https://github.com/atlasfetch-dev/atlasfetch-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "atlasfetch-mcp",
-      "version": "0.4.4",
+      "version": "0.4.5",
       "transport": {
         "type": "stdio"
       },

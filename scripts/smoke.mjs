@@ -73,6 +73,12 @@ await call("geocode_address", { q: "10 Downing Street, London", country: "GB" })
 // A street corner (spec 1.6.0), and an erf, which has no point and goes to the customer.
 await call("geocode_address", { q: "Cnr Main Rd and Belmont Rd, Rondebosch" });
 await call("geocode_address", { q: "Erf 1234, Khayelitsha" });
+// ZA's neighbours (API 38): a street in Windhoek, and plots, found as address with no street,
+// or set aside when the data does not hold them.
+await call("geocode_address", { q: "Independence Avenue, Windhoek", country: "NA" });
+await call("geocode_address", { q: "Plot 1225, Kasane", country: "BW" });
+await call("geocode_address", { address: { housenumber: "Y116", city: "Harare" }, country: "ZW" });
+await call("geocode_address", { q: "Plot 50, Gaborone", country: "BW" });
 // streetGeometry implies the street layer, so municipal alone still gets a street with a line.
 await call("lookup_location", { lat: -26.2041, lng: 28.0473, base: ["municipal"], streetGeometry: "polyline6" });
 

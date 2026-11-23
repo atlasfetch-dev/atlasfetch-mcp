@@ -143,8 +143,17 @@ function dispatchAdvice(result: GeocodeResult): string {
 /** A short name for a geocoding candidate: the site, corner or street, then the town. */
 function placeName(a: GeocodeResult): string {
   const m = a.matched
-  const what = m.site ?? (m.crossStreet ? `${m.street} & ${m.crossStreet}` : [m.housenumber, m.street].filter(Boolean).join(' '))
+  const what = m.site ?? (m.crossStreet ? `${m.street} & ${m.crossStreet}` : housePart(m))
   return [what, ...areaNames(m)].filter(Boolean).join(', ') || a.precision
+}
+
+/**
+ * "25 Adderley Street", or "plot/stand 1225" for a plot or stand number with no
+ * street, as Botswana and Zimbabwe write addresses ("Plot 1225, Kasane").
+ */
+function housePart(m: GeocodeResult['matched']): string {
+  if (m.housenumber && !m.street) return `plot/stand ${m.housenumber.toUpperCase()}`
+  return [m.housenumber, m.street].filter(Boolean).join(' ')
 }
 
 /**
@@ -171,9 +180,7 @@ function summariseGeocode(result: GeocodeResult | null): string {
   const m = result.matched
   const where = [
     m.site,
-    m.crossStreet
-      ? `${m.street} & ${m.crossStreet}`
-      : [m.housenumber, m.street].filter(Boolean).join(' '),
+    m.crossStreet ? `${m.street} & ${m.crossStreet}` : housePart(m),
     ...areaNames(m),
     m.region ?? m.country,
   ].filter(Boolean).join(', ')
@@ -227,7 +234,7 @@ export function createServer(): McpServer {
         'plus the boundaries the caller has uploaded themselves. It also routes between ' +
         'coordinates, optionally around those same boundaries (get_route, 10 lookups a call on the ' +
         'standard plans, free-flow durations with no traffic), and geocodes addresses to ' +
-        'coordinates in South Africa (geocode_address, 1 lookup). It does not search for places ' +
+        'coordinates in South Africa and its neighbours (geocode_address, 1 lookup). It does not search for places ' +
         'by name, and it does not return boundary geometry for the reference layers.',
     },
   )
@@ -345,16 +352,18 @@ export function createServer(): McpServer {
   server.registerTool(
     'geocode_address',
     {
-      title: 'Geocode an address to a coordinate (South Africa)',
+      title: 'Geocode an address to a coordinate (Southern Africa)',
       description: [
         'Turn ONE address into a point, with an honest account of how much of it was found. Built',
-        'for deliveries. South Africa today; more countries as their data loads. 1 lookup per',
-        'address, found or not.',
+        'for deliveries. South Africa, Namibia, Botswana, Zimbabwe, Lesotho and Eswatini today;',
+        'more countries as their data loads. 1 lookup per address, found or not.',
         '',
         'Send either q (one line) or address (housenumber, street, suburb, city, postcode, unit) —',
         'never both. If the address is already split, send it split: it matches better.',
         '',
-        'READ precision BEFORE using the point. "address" means the house was found;',
+        'READ precision BEFORE using the point. "address" means the house was found — or the plot',
+        'or stand, as Botswana and Zimbabwe write addresses ("Plot 1225, Kasane", "Stand Y116,',
+        'Harare"), with its number in matched.housenumber and no matched.street;',
         '"interpolated" means it was estimated between the numbers either side; "intersection"',
         'means a street corner ("Cnr Main Rd and Belmont Rd", "Bree & Strand Streets"), at the',
         'point where the two meet, with the second street in matched.crossStreet; "site" means a',
@@ -383,13 +392,16 @@ export function createServer(): McpServer {
         'number to confirm it. result null means nothing trustworthy was found, and that still',
         'costs the lookup.',
         '',
-        'Some addresses name something that cannot be placed: an erf, stand, plot or farm portion',
-        '(land parcels — there is no cadastre), a township stand, a PO box or private bag. Those',
-        'parts come back in unmatched and the answer is the place named, at locality: ask the',
-        'customer for a street address.',
+        'Some addresses name something that cannot be placed: in South Africa an erf, stand, plot or',
+        'farm portion (land parcels — there is no cadastre); a plot or stand number elsewhere that',
+        'the data does not hold; a PO box or private bag anywhere. Those parts come back in',
+        'unmatched and the answer is the place named, at locality: ask the customer for a street',
+        'address.',
         '',
         'country is a hard filter; region (ZA-WC, or "Western Cape") only ranks streets inside it',
-        'first, so a wrong province does not lose the address. An uncovered country is refused,',
+        'first, so a wrong province does not lose the address. OUTSIDE SOUTH AFRICA, PASS country',
+        '(NA, BW, ZW, LS, SZ): without it a same-named place in South Africa can win ("Kingsway,',
+        'Maseru" without LS answers a Kingsway in South Africa). An uncovered country is refused,',
         'unbilled, with the list of covered countries in the message — that message is the live',
         'coverage list; there is no other. sets and base answer "which delivery zone is it in" in',
         'the same call, at no extra cost.',
@@ -411,12 +423,12 @@ export function createServer(): McpServer {
             unit: z.string().max(120).optional(),
           })
           .optional()
-          .describe('The address already split into parts. Needs at least a street. Use instead of q.'),
+          .describe('The address already split into parts. Needs a street, or a plot or stand number in housenumber with city or suburb for the place. Use instead of q.'),
         country: z
           .string()
           .length(2)
           .optional()
-          .describe('ISO 3166-1 alpha-2, e.g. "ZA". A hard filter: only that country is searched.'),
+          .describe('ISO 3166-1 alpha-2: ZA, NA, BW, ZW, LS or SZ today. A hard filter: only that country is searched. Pass it outside ZA.'),
         region: z
           .string()
           .max(120)

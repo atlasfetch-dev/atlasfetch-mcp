@@ -4,6 +4,15 @@ Every release of `atlasfetch-mcp`, newest first. Dates are when the version reac
 
 Before 1.0, a minor version (0.3 → 0.4) may rename an input, always with a deprecated alias first. See [Stability](README.md#stability) for what 1.0 will promise.
 
+## 0.4.5
+
+### Changed
+- **`geocode_address` covers South Africa's five neighbours:** Namibia, Botswana, Zimbabwe, Lesotho and Eswatini. The description tells the assistant to pass `country` outside South Africa, because without it a same-named place in South Africa can win.
+- **Plot and stand numbers.** Botswana and Zimbabwe write addresses as a plot or stand with no street ("Plot 1225, Kasane", "Stand Y116, Harare"). These answer at `address` with the number in `matched.housenumber` and no `matched.street`; the result line reads "plot/stand 1225". Structured input accepts `housenumber` with no `street`. A plot the data does not hold is set aside in `unmatched`, as South Africa's erven are.
+- The listing texts (`manifest.json`, `server.json`, `package.json`) no longer say South Africa only. The bundle's long description no longer says the server is not for forward geocoding, which it has been since 0.3.0.
+
+No tool, input or default changed.
+
 ## 0.4.4 — 2026-10-30
 
 ### Changed

@@ -15,7 +15,7 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 | Tool | What it does |
 | --- | --- |
 | `lookup_location` | A coordinate becomes the country, region and municipality containing it, with ISO 3166-1 / 3166-2 codes, plus matches from your own boundary sets. Optionally the **nearest street** (ask for the `street` layer), and the point as an H3 cell or Google Plus Code. |
-| `geocode_address` | An address becomes a point, in South Africa today, with a **precision** that says whether the house, the street or only the suburb was found — and what to do about it. |
+| `geocode_address` | An address becomes a point, in South Africa, Namibia, Botswana, Zimbabwe, Lesotho and Eswatini today, with a **precision** that says whether the house, the street or only the suburb was found — and what to do about it. |
 | `get_route` | A route between 2 and 25 coordinates by car, bike, foot or truck, with turn-by-turn steps — optionally **around** your own zones, or **measuring** how far it runs inside them. |
 | `list_boundary_sets` | Lists your boundary sets, their counts, and which API keys may query them. |
 | `create_boundary_set` | Creates an empty set for your own polygons. |
@@ -24,7 +24,7 @@ country: United Kingdom (GB) · region: England (GB-ENG) · municipal: City of W
 
 **Good for:** reverse geocoding to administrative areas, finding the street a point is on, geofencing against your own delivery zones or service areas, jurisdiction and region checks, tagging location data with region codes, geocoding delivery addresses in South Africa, and routing that keeps out of the areas you name.
 
-**Not for:** geocoding outside South Africa (yet), searching for places by name, traffic-aware ETAs, distance matrices, isochrones, map tiles, or downloading boundary geometry.
+**Not for:** geocoding outside Southern Africa (yet), searching for places by name, traffic-aware ETAs, distance matrices, isochrones, map tiles, or downloading boundary geometry.
 
 ### Directions
 
@@ -46,7 +46,7 @@ Plan limits apply: 2 locations on the free plans and up to 25 on Pro, truck is P
 
 ### Geocoding
 
-`geocode_address` turns one address into a point — `q` on one line, or `address` already split into parts. South Africa today.
+`geocode_address` turns one address into a point — `q` on one line, or `address` already split into parts. South Africa, Namibia, Botswana, Zimbabwe, Lesotho and Eswatini today; outside South Africa, pass `country`, or a same-named place in South Africa can win. Plot and stand numbers with no street, as Botswana and Zimbabwe write addresses ("Plot 1225, Kasane"), answer at `address` with no `matched.street`.
 
 ```
 address · confidence 0.96 · 25 Adderley Street, Cape Town, ZA-WC — dispatch

@@ -4,7 +4,7 @@ Every release of `atlasfetch-mcp`, newest first. Dates are when the version reac
 
 Before 1.0, a minor version (0.3 → 0.4) may rename an input, always with a deprecated alias first. See [Stability](README.md#stability) for what 1.0 will promise.
 
-## 0.4.5
+## 0.4.5 — 2026-11-23
 
 ### Changed
 - **`geocode_address` covers South Africa's five neighbours:** Namibia, Botswana, Zimbabwe, Lesotho and Eswatini. The description tells the assistant to pass `country` outside South Africa, because without it a same-named place in South Africa can win.
